@@ -7,6 +7,24 @@ interface MarketBreadthGaugeProps {
 
 export function MarketBreadthGauge({ breadth }: MarketBreadthGaugeProps) {
   const { advances, declines, unchanged, total } = breadth;
+  if (total === 0) {
+    return (
+      <div className="glass-card rounded-2xl p-5">
+        <div className="mb-4">
+          <h3 className="font-display text-sm font-bold uppercase tracking-wider">
+            Market Breadth
+          </h3>
+          <p className="text-xs text-muted-foreground">Advances vs Declines</p>
+        </div>
+        <div className="flex h-36 flex-col items-center justify-center gap-2 rounded-xl bg-muted/25 text-center">
+          <div className="market-shimmer h-2 w-24 rounded-full" />
+          <p className="text-xs text-muted-foreground">
+            Waiting for live breadth data
+          </p>
+        </div>
+      </div>
+    );
+  }
   const advPercent = total > 0 ? (advances / total) * 100 : 0;
   const decPercent = total > 0 ? (declines / total) * 100 : 0;
   const uncPercent = total > 0 ? (unchanged / total) * 100 : 0;

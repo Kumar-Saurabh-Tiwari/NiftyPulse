@@ -12,8 +12,21 @@ export function TickerTape({ indices, lastTick }: TickerTapeProps) {
 
   if (!indices.length) {
     return (
-      <div className="border-y border-border/50 bg-muted/30 py-2 text-center text-xs text-muted-foreground">
-        Waiting for market quotes…
+      <div className="border-y border-border/50 bg-white/35 py-2 backdrop-blur-md dark:bg-black/20">
+        <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 md:px-6">
+          <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-emerald-500" />
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Live market feed
+          </span>
+          <div className="flex flex-1 items-center gap-6 overflow-hidden">
+            {[0, 1, 2, 3, 4].map((item) => (
+              <div key={item} className="flex min-w-28 items-center gap-2">
+                <div className="market-shimmer h-2.5 w-16 rounded" />
+                <div className="market-shimmer h-3.5 w-20 rounded" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

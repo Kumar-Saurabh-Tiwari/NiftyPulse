@@ -4,7 +4,6 @@ import {
   fetchMarketSnapshot,
   type DataSource,
 } from '@/services/marketDataService';
-import { buildIndices, buildStocks, buildBreadth, SECTORS_SEED } from '@/lib/mockData';
 
 export interface MarketState {
   indices: IndexData[];
@@ -20,16 +19,19 @@ export interface MarketState {
 }
 
 export function useMarketData(intervalMs: number = 30000): MarketState {
-  const [indices, setIndices] = useState<IndexData[]>(() => buildIndices());
-  const [stocks, setStocks] = useState<StockData[]>(() => buildStocks());
-  const [sectors, setSectors] = useState<SectorData[]>(() =>
-    SECTORS_SEED.map((s) => ({ ...s }))
-  );
-  const [breadth, setBreadth] = useState<MarketBreadth>(() => buildBreadth());
+  const [indices, setIndices] = useState<IndexData[]>([]);
+  const [stocks, setStocks] = useState<StockData[]>([]);
+  const [sectors, setSectors] = useState<SectorData[]>([]);
+  const [breadth, setBreadth] = useState<MarketBreadth>({
+    advances: 0,
+    declines: 0,
+    unchanged: 0,
+    total: 0,
+  });
   const [lastTick, setLastTick] = useState<
     Record<string, 'up' | 'down' | 'same'>
   >({});
-  const [source, setSource] = useState<DataSource>('mock');
+  const [source, setSource] = useState<DataSource>('unavailable');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
@@ -71,11 +73,7 @@ export function useMarketData(intervalMs: number = 30000): MarketState {
         setLastTick(tickData);
         setSource(snapshot.source);
         setUpdatedAt(snapshot.updatedAt);
-        setError(
-          snapshot.source === 'mock'
-            ? 'Live market API unavailable — showing fallback data'
-            : null
-        );
+        setError(null);
       } catch (e) {
         if ((e as Error).name === 'AbortError' || cancelled) return;
         setError((e as Error).message || 'Failed to load market data');

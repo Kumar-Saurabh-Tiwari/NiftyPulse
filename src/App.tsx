@@ -11,6 +11,7 @@ import { TopMovers } from '@/components/TopMovers';
 import { SectoralHeatmap } from '@/components/SectoralHeatmap';
 import { Watchlist, type WatchlistItem } from '@/components/Watchlist';
 import { SearchModal } from '@/components/SearchModal';
+import { DashboardPlaceholder } from '@/components/DashboardPlaceholder';
 import { useTheme } from '@/hooks/useTheme';
 import { useMarketData, useFormatPrice } from '@/hooks/useMarketData';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -184,7 +185,7 @@ function App() {
                   ? error
                   : source === 'live'
                     ? 'Live quotes · Yahoo Finance (NSE / BSE)'
-                    : 'Using fallback data'}
+                    : 'Live market data unavailable'}
             </span>
             <div className="flex items-center gap-3">
               {updatedLabel && <span>Updated {updatedLabel}</span>}
@@ -198,6 +199,14 @@ function App() {
             </div>
           </div>
 
+          {indices.length === 0 ? (
+            <DashboardPlaceholder
+              loading={loading}
+              error={error}
+              onRetry={refresh}
+            />
+          ) : (
+            <>
           <motion.div
             layout
             className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
@@ -276,11 +285,17 @@ function App() {
               ))}
             </div>
           </div>
+            </>
+          )}
 
           <footer className="mt-10 border-t border-border/50 pt-6 pb-4 text-center">
             <p className="text-xs text-muted-foreground">
               NiftyPulse ·{' '}
-              {source === 'live' ? 'Live data via Yahoo Finance' : 'Fallback data'}{' '}
+              {source === 'live'
+                ? 'Live data via Yahoo Finance'
+                : loading
+                  ? 'Connecting to live market data'
+                  : 'Live market data unavailable'}{' '}
               · Not financial advice
               {updatedLabel ? ` · Last sync ${updatedLabel}` : ''}
             </p>

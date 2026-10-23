@@ -20,7 +20,7 @@ import { fetchSymbolHistory } from '@/services/marketDataService';
 interface IndexChartProps {
   index: IndexData;
   tick: 'up' | 'down' | 'same' | undefined;
-  dataSource?: 'live' | 'mock';
+  dataSource?: 'live' | 'unavailable';
 }
 
 const TIMEFRAMES: Timeframe[] = ['1D', '1W', '1M', '6M', '1Y', '5Y'];
@@ -141,7 +141,7 @@ export function IndexChart({
               </span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              {dataSource === 'live' ? 'Live Yahoo Finance' : 'Fallback'} feed
+              {dataSource === 'live' ? 'Live Yahoo Finance' : 'Waiting for live data'} feed
               {historyLoading ? ' · loading chart…' : ''} · Volume{' '}
               {formatCompact(index.volume)}
             </p>

@@ -17,14 +17,7 @@ import {
   fetchCharts,
   type YahooChartResult,
 } from './yahooFinanceClient';
-import {
-  buildIndices,
-  buildStocks,
-  buildBreadth,
-  SECTORS_SEED,
-} from '@/lib/mockData';
-
-export type DataSource = 'live' | 'mock';
+export type DataSource = 'live' | 'unavailable';
 
 export interface MarketSnapshot {
   indices: IndexData[];
@@ -177,22 +170,16 @@ function buildSectorsFromData(
   };
 
   return Object.keys(SECTOR_INDEX_SYMBOLS).map((name) => {
-    const seed = SECTORS_SEED.find((s) => s.name === name);
     const fromIndex = byIndexSymbol[name];
     const top = topBySector(name);
-    const changePercent = fromIndex
-      ? fromIndex.changePercent
-      : top
-        ? top.changePercent
-        : (seed?.changePercent ?? 0);
 
     return {
       name,
-      changePercent: round2(changePercent),
-      topStock: top?.symbol ?? seed?.topStock ?? '—',
-      volume: fromIndex?.volume || top?.volume || seed?.volume || 0,
+      changePercent: fromIndex?.changePercent ?? top?.changePercent ?? 0,
+      topStock: top?.symbol ?? '—',
+      volume: fromIndex?.volume || top?.volume || 0,
     };
-  });
+  }).filter((sector) => sector.topStock !== '—' || sector.volume > 0);
 }
 
 function buildBreadthFromStocks(stocks: StockData[]): MarketBreadth {
@@ -203,6 +190,9 @@ function buildBreadthFromStocks(stocks: StockData[]): MarketBreadth {
     if (s.changePercent > 0.02) advances++;
     else if (s.changePercent < -0.02) declines++;
     else unchanged++;
+  }
+  if (!stocks.length) {
+    return { advances: 0, declines: 0, unchanged: 0, total: 0 };
   }
   // Scale sample (watchlist size) toward a Nifty-like breadth feel
   const scale = Math.max(1, Math.round(1800 / Math.max(stocks.length, 1)));
@@ -219,7 +209,6 @@ function buildBreadthFromStocks(stocks: StockData[]): MarketBreadth {
 
 /**
  * Fetch a full market snapshot from Yahoo Finance.
- * Falls back to local mock builders if the live API is unavailable.
  */
 export async function fetchMarketSnapshot(
   signal?: AbortSignal
@@ -238,7 +227,7 @@ export async function fetchMarketSnapshot(
     ]);
 
     if (indexCharts.size === 0 && stockCharts.size === 0) {
-      throw new Error('Empty live response');
+      throw new Error('No market data returned from Yahoo Finance.');
     }
 
     const indices: IndexData[] = [];
@@ -260,32 +249,23 @@ export async function fetchMarketSnapshot(
     }
 
     if (!indices.length) {
-      throw new Error('No index quotes');
+      throw new Error(
+        'No live index quotes received. Verify that the deployed /api/yahoo endpoint is available.'
+      );
     }
 
     return {
       indices,
-      stocks: stocks.length ? stocks : buildStocks(),
+      stocks,
       sectors: buildSectorsFromData(indices, stocks),
-      breadth: stocks.length
-        ? buildBreadthFromStocks(stocks)
-        : buildBreadth(),
+      breadth: buildBreadthFromStocks(stocks),
       source: 'live',
       updatedAt: Date.now(),
     };
   } catch (e) {
     if ((e as Error).name === 'AbortError') throw e;
-    console.warn('[marketDataService] live fetch failed, using mock', e);
-    const indices = buildIndices();
-    const stocks = buildStocks();
-    return {
-      indices,
-      stocks,
-      sectors: SECTORS_SEED.map((s) => ({ ...s })),
-      breadth: buildBreadth(),
-      source: 'mock',
-      updatedAt: Date.now(),
-    };
+    console.warn('[marketDataService] live fetch failed', e);
+    throw e;
   }
 }
 
