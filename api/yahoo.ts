@@ -6,7 +6,7 @@ interface VercelRequest {
 interface VercelResponse {
   status(code: number): VercelResponse;
   setHeader(name: string, value: string): void;
-  send(body: string | Uint8Array): void;
+  send(body: string): void;
 }
 
 const YAHOO_FINANCE_BASE = 'https://query1.finance.yahoo.com';
@@ -65,7 +65,7 @@ export default async function handler(
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       },
     });
-    const body = new Uint8Array(await upstream.arrayBuffer());
+    const body = await upstream.text();
 
     response.status(upstream.status);
     response.setHeader(
