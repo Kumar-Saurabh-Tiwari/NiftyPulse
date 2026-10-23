@@ -1,5 +1,5 @@
 import './App.css';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Pin } from 'lucide-react';
 import { Header } from '@/components/Header';
@@ -26,9 +26,9 @@ const DEFAULT_WATCHLIST: WatchlistItem[] = [
 ];
 
 function resolveHeroSymbols(pins: string[]): string[] {
-  if (pins.length >= 2) return pins.slice(0, 2);
+  if (pins.length >= 2) return pins;
   if (pins.length === 1) {
-    const fill = DEFAULT_PINS.find((s) => s !== pins[0]) ?? DEFAULT_PINS[0];
+    const fill = DEFAULT_PINS.find((symbol) => symbol !== pins[0]) ?? DEFAULT_PINS[0];
     return [pins[0], fill];
   }
   return DEFAULT_PINS;
@@ -56,6 +56,8 @@ function App() {
   const [activeSymbol, setActiveSymbol] = useState<string>('NIFTY 50');
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const chartSectionRef = useRef<HTMLDivElement>(null);
+  const watchlistSectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -115,13 +117,24 @@ function App() {
   const handleSelectStock = useCallback(
     (symbol: string) => {
       handleAdd(symbol, 'stock');
-      setSearchOpen(false);
+      window.requestAnimationFrame(() =>
+        watchlistSectionRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        })
+      );
     },
     [handleAdd]
   );
 
   const handleSelectIndex = useCallback((symbol: string) => {
     setActiveSymbol(symbol);
+    window.requestAnimationFrame(() =>
+      chartSectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+    );
   }, []);
 
   const activeIndex: IndexData | undefined =
@@ -203,7 +216,7 @@ function App() {
           </motion.div>
 
           <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="lg:col-span-2">
+            <div ref={chartSectionRef} className="lg:col-span-2">
               {activeIndex ? (
                 <IndexChart
                   index={activeIndex}
@@ -225,7 +238,7 @@ function App() {
             <div className="lg:col-span-2">
               <TopMovers stocks={stocks} lastTick={lastTick} />
             </div>
-            <div>
+            <div ref={watchlistSectionRef}>
               <Watchlist
                 items={watchlist}
                 onReorder={handleReorder}
