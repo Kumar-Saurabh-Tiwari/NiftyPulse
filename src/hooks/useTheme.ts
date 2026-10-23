@@ -2,16 +2,17 @@ import { useState, useLayoutEffect, useCallback } from 'react';
 import type { Theme } from '@/lib/types';
 
 const STORAGE_KEY = 'niftypulse-theme';
+const DEFAULT_THEME: Theme = 'light';
 
 function readStoredTheme(): Theme {
-  if (typeof window === 'undefined') return 'dark';
+  if (typeof window === 'undefined') return DEFAULT_THEME;
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'light' || stored === 'dark') return stored;
   } catch {
     /* noop */
   }
-  return 'dark';
+  return DEFAULT_THEME;
 }
 
 function applyThemeClass(theme: Theme) {

@@ -80,9 +80,9 @@ export function Header({ theme, onToggleTheme, onOpenSearch }: HeaderProps) {
                     initial={{ rotate: -90, opacity: 0 }}
                     animate={{ rotate: 0, opacity: 1 }}
                     exit={{ rotate: 90, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
+                    transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
                   >
-                    <Moon className="h-4 w-4 text-emerald-400" />
+                    <Moon className="h-4 w-4 text-emerald-500" />
                   </motion.div>
                 ) : (
                   <motion.div
@@ -90,7 +90,7 @@ export function Header({ theme, onToggleTheme, onOpenSearch }: HeaderProps) {
                     initial={{ rotate: 90, opacity: 0 }}
                     animate={{ rotate: 0, opacity: 1 }}
                     exit={{ rotate: -90, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
+                    transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
                   >
                     <Sun className="h-4 w-4 text-amber-500" />
                   </motion.div>

@@ -22,7 +22,7 @@ export function TickerTape({ indices, lastTick }: TickerTapeProps) {
   const tickerData = [...indices, ...indices];
 
   return (
-    <div className="relative overflow-hidden border-y border-border/50 bg-muted/40 py-2 dark:bg-black/30">
+    <div className="relative overflow-hidden border-y border-border/40 bg-white/45 py-2 backdrop-blur-md dark:bg-black/30">
       <div className="animate-ticker flex w-max items-center gap-0">
         {tickerData.map((idx, i) => {
           const tick = lastTick[idx.symbol];
