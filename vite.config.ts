@@ -16,7 +16,16 @@ export default defineConfig({
         target: 'https://query1.finance.yahoo.com',
         changeOrigin: true,
         secure: true,
-        rewrite: (p) => p.replace(/^\/api\/yahoo/, ''),
+        rewrite: (requestPath) => {
+          const queryStart = requestPath.indexOf('?');
+          const params = new URLSearchParams(
+            queryStart === -1 ? '' : requestPath.slice(queryStart + 1)
+          );
+          const symbol = params.get('symbol');
+          const range = params.get('range') ?? '1d';
+          const interval = params.get('interval') ?? '5m';
+          return `/v8/finance/chart/${encodeURIComponent(symbol ?? '')}?range=${encodeURIComponent(range)}&interval=${encodeURIComponent(interval)}`;
+        },
         headers: {
           'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -31,7 +40,16 @@ export default defineConfig({
         target: 'https://query1.finance.yahoo.com',
         changeOrigin: true,
         secure: true,
-        rewrite: (p) => p.replace(/^\/api\/yahoo/, ''),
+        rewrite: (requestPath) => {
+          const queryStart = requestPath.indexOf('?');
+          const params = new URLSearchParams(
+            queryStart === -1 ? '' : requestPath.slice(queryStart + 1)
+          );
+          const symbol = params.get('symbol');
+          const range = params.get('range') ?? '1d';
+          const interval = params.get('interval') ?? '5m';
+          return `/v8/finance/chart/${encodeURIComponent(symbol ?? '')}?range=${encodeURIComponent(range)}&interval=${encodeURIComponent(interval)}`;
+        },
         headers: {
           'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',

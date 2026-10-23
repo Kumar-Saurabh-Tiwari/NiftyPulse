@@ -2,8 +2,8 @@ import type { ChartInterval, ChartRange } from './symbolMap';
 
 /**
  * Yahoo Finance chart client.
- * In dev/preview, requests go through the Vite proxy (`/api/yahoo`) to avoid CORS.
- * Override with VITE_YAHOO_API_BASE if you terminate the proxy elsewhere.
+ * Requests go through the same-origin API route (`/api/yahoo`) to avoid CORS.
+ * Override with VITE_YAHOO_API_BASE to use a path-based external proxy.
  */
 const API_BASE =
   import.meta.env.VITE_YAHOO_API_BASE?.replace(/\/$/, '') || '/api/yahoo';
@@ -80,8 +80,11 @@ export async function fetchChart(
   interval: ChartInterval = '5m',
   signal?: AbortSignal
 ): Promise<YahooChartResult> {
-  const encoded = encodeURIComponent(yahooSymbol);
-  const url = `${API_BASE}/v8/finance/chart/${encoded}?range=${range}&interval=${interval}`;
+  const query = new URLSearchParams({ symbol: yahooSymbol, range, interval });
+  const url =
+    API_BASE === '/api/yahoo'
+      ? `${API_BASE}?${query.toString()}`
+      : `${API_BASE}/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=${range}&interval=${interval}`;
   const data = await fetchJson<YahooChartResponse>(url, signal);
   const err = data.chart?.error;
   if (err) {

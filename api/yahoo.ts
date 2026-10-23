@@ -10,6 +10,22 @@ interface VercelResponse {
 }
 
 const YAHOO_FINANCE_BASE = 'https://query1.finance.yahoo.com';
+const ALLOWED_RANGES = new Set(['1d', '5d', '1mo', '6mo', '1y', '5y']);
+const ALLOWED_INTERVALS = new Set([
+  '1m',
+  '5m',
+  '15m',
+  '30m',
+  '60m',
+  '1d',
+  '1wk',
+]);
+
+function firstQueryValue(
+  value: string | string[] | undefined
+): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 export default async function handler(
   request: VercelRequest,
@@ -21,35 +37,25 @@ export default async function handler(
     return;
   }
 
-  const path = request.query.path;
-  const pathSegments = Array.isArray(path) ? path : path?.split('/');
-  if (
-    !pathSegments ||
-    pathSegments.length !== 4 ||
-    pathSegments[0] !== 'v8' ||
-    pathSegments[1] !== 'finance' ||
-    pathSegments[2] !== 'chart'
-  ) {
-    response.status(404).send('Not found');
+  const symbol = firstQueryValue(request.query.symbol);
+  const range = firstQueryValue(request.query.range) ?? '1d';
+  const interval = firstQueryValue(request.query.interval) ?? '5m';
+
+  if (!symbol || !/^[A-Za-z0-9.^=_-]{1,32}$/.test(symbol)) {
+    response.status(400).send('A valid ticker symbol is required');
     return;
   }
-
-  const ticker = pathSegments[3];
-  if (!ticker) {
-    response.status(400).send('A ticker is required');
+  if (!ALLOWED_RANGES.has(range) || !ALLOWED_INTERVALS.has(interval)) {
+    response.status(400).send('Unsupported chart range or interval');
     return;
   }
 
   const upstreamUrl = new URL(
-    `/v8/finance/chart/${encodeURIComponent(ticker)}`,
+    `/v8/finance/chart/${encodeURIComponent(symbol)}`,
     YAHOO_FINANCE_BASE
   );
-  for (const [key, value] of Object.entries(request.query)) {
-    if (key === 'path' || value == null) continue;
-    for (const item of Array.isArray(value) ? value : [value]) {
-      upstreamUrl.searchParams.append(key, item);
-    }
-  }
+  upstreamUrl.searchParams.set('range', range);
+  upstreamUrl.searchParams.set('interval', interval);
 
   try {
     const upstream = await fetch(upstreamUrl, {
