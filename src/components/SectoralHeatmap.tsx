@@ -29,42 +29,53 @@ export function SectoralHeatmap({ sectors }: SectoralHeatmapProps) {
         <p className="text-xs text-muted-foreground">Performance by sector</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-5">
-        {sectors.map((sector, i) => {
-          const isUp = sector.changePercent >= 0;
-          return (
-            <motion.div
-              key={sector.name}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: i * 0.05, type: 'spring', stiffness: 200 }}
-              whileHover={{ scale: 1.05, y: -2 }}
-              className="relative overflow-hidden rounded-xl p-3"
-              style={{
-                backgroundColor: heatColor(sector.changePercent),
-                border: `1px solid ${borderColor(sector.changePercent)}`,
-              }}
-            >
-              <div className="relative">
-                <p className="text-xs font-bold uppercase tracking-wider">{sector.name}</p>
-                <p className="mt-1 font-mono-tabular text-lg font-bold">
-                  {isUp ? '+' : ''}
-                  {sector.changePercent.toFixed(2)}%
-                </p>
-                <p className="mt-0.5 text-[9px] text-muted-foreground">
-                  Top: {sector.topStock}
-                </p>
-              </div>
-              {/* Glow */}
-              <div
-                className={`pointer-events-none absolute -bottom-8 -right-8 h-20 w-20 rounded-full opacity-30 blur-2xl ${
-                  isUp ? 'bg-emerald-400' : 'bg-rose-400'
-                }`}
-              />
-            </motion.div>
-          );
-        })}
-      </div>
+      {!sectors.length ? (
+        <div className="py-10 text-center text-xs text-muted-foreground">
+          Sector data unavailable.
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {sectors.map((sector, i) => {
+            const isUp = sector.changePercent >= 0;
+            return (
+              <motion.div
+                key={sector.name}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.05, type: 'spring', stiffness: 200 }}
+                whileHover={{ scale: 1.05, y: -2 }}
+                className="relative overflow-hidden rounded-xl p-3"
+                style={{
+                  backgroundColor: heatColor(sector.changePercent),
+                  border: `1px solid ${borderColor(sector.changePercent)}`,
+                }}
+              >
+                <div className="relative">
+                  <p className="text-xs font-bold uppercase tracking-wider">
+                    {sector.name}
+                  </p>
+                  <p
+                    className={`mt-1 font-mono-tabular text-lg font-bold ${
+                      isUp ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                    }`}
+                  >
+                    {isUp ? '+' : ''}
+                    {sector.changePercent.toFixed(2)}%
+                  </p>
+                  <p className="mt-0.5 text-[9px] text-muted-foreground">
+                    Top: {sector.topStock}
+                  </p>
+                </div>
+                <div
+                  className={`pointer-events-none absolute -bottom-8 -right-8 h-20 w-20 rounded-full opacity-30 blur-2xl ${
+                    isUp ? 'bg-emerald-400' : 'bg-rose-400'
+                  }`}
+                />
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

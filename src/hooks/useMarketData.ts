@@ -1,68 +1,113 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { IndexData, StockData, MarketBreadth } from '@/lib/types';
+import type { IndexData, StockData, MarketBreadth, SectorData } from '@/lib/types';
 import {
-  buildIndices,
-  buildStocks,
-  buildBreadth,
-  tickIndex,
-  tickStock,
-} from '@/lib/mockData';
+  fetchMarketSnapshot,
+  type DataSource,
+} from '@/services/marketDataService';
+import { buildIndices, buildStocks, buildBreadth, SECTORS_SEED } from '@/lib/mockData';
 
 export interface MarketState {
   indices: IndexData[];
   stocks: StockData[];
+  sectors: SectorData[];
   breadth: MarketBreadth;
   lastTick: Record<string, 'up' | 'down' | 'same'>;
+  source: DataSource;
+  loading: boolean;
+  error: string | null;
+  updatedAt: number | null;
+  refresh: () => void;
 }
 
-export function useMarketData(intervalMs: number = 2000): MarketState {
+export function useMarketData(intervalMs: number = 30000): MarketState {
   const [indices, setIndices] = useState<IndexData[]>(() => buildIndices());
   const [stocks, setStocks] = useState<StockData[]>(() => buildStocks());
+  const [sectors, setSectors] = useState<SectorData[]>(() =>
+    SECTORS_SEED.map((s) => ({ ...s }))
+  );
   const [breadth, setBreadth] = useState<MarketBreadth>(() => buildBreadth());
   const [lastTick, setLastTick] = useState<
     Record<string, 'up' | 'down' | 'same'>
   >({});
+  const [source, setSource] = useState<DataSource>('mock');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
   const prevPricesRef = useRef<Record<string, number>>({});
+  const abortRef = useRef<AbortController | null>(null);
+
+  const refresh = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
 
   useEffect(() => {
-    const id = setInterval(() => {
-      setIndices((prev) => {
+    let cancelled = false;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const applySnapshot = async (isInitial: boolean) => {
+      if (isInitial) setLoading(true);
+      try {
+        const snapshot = await fetchMarketSnapshot(controller.signal);
+        if (cancelled) return;
+
         const tickData: Record<string, 'up' | 'down' | 'same'> = {};
-        const next = prev.map((idx) => {
-          const updated = tickIndex(idx);
-          const prevPrice = prevPricesRef.current[idx.symbol] ?? idx.price;
-          if (updated.price > prevPrice) tickData[idx.symbol] = 'up';
-          else if (updated.price < prevPrice) tickData[idx.symbol] = 'down';
-          else tickData[idx.symbol] = 'same';
-          prevPricesRef.current[idx.symbol] = updated.price;
-          return updated;
-        });
+        for (const item of [...snapshot.indices, ...snapshot.stocks]) {
+          const prev = prevPricesRef.current[item.symbol];
+          if (prev == null) tickData[item.symbol] = 'same';
+          else if (item.price > prev) tickData[item.symbol] = 'up';
+          else if (item.price < prev) tickData[item.symbol] = 'down';
+          else tickData[item.symbol] = 'same';
+          prevPricesRef.current[item.symbol] = item.price;
+        }
+
+        setIndices(snapshot.indices);
+        setStocks(snapshot.stocks);
+        setSectors(snapshot.sectors);
+        setBreadth(snapshot.breadth);
         setLastTick(tickData);
-        return next;
-      });
+        setSource(snapshot.source);
+        setUpdatedAt(snapshot.updatedAt);
+        setError(
+          snapshot.source === 'mock'
+            ? 'Live market API unavailable — showing fallback data'
+            : null
+        );
+      } catch (e) {
+        if ((e as Error).name === 'AbortError' || cancelled) return;
+        setError((e as Error).message || 'Failed to load market data');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
 
-      setStocks((prev) => {
-        const tickData: Record<string, 'up' | 'down' | 'same'> = {};
-        const next = prev.map((stk) => {
-          const updated = tickStock(stk);
-          const prevPrice = prevPricesRef.current[stk.symbol] ?? stk.price;
-          if (updated.price > prevPrice) tickData[stk.symbol] = 'up';
-          else if (updated.price < prevPrice) tickData[stk.symbol] = 'down';
-          else tickData[stk.symbol] = 'same';
-          prevPricesRef.current[stk.symbol] = updated.price;
-          return updated;
-        });
-        setLastTick((prev) => ({ ...prev, ...tickData }));
-        return next;
-      });
-
-      setBreadth(buildBreadth());
+    void applySnapshot(true);
+    const id = setInterval(() => {
+      void applySnapshot(false);
     }, intervalMs);
 
-    return () => clearInterval(id);
-  }, [intervalMs]);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+      controller.abort();
+    };
+  }, [intervalMs, refreshKey]);
 
-  return { indices, stocks, breadth, lastTick };
+  return {
+    indices,
+    stocks,
+    sectors,
+    breadth,
+    lastTick,
+    source,
+    loading,
+    error,
+    updatedAt,
+    refresh,
+  };
 }
 
 export function useFormatPrice(): {
@@ -85,7 +130,11 @@ export function useFormatPrice(): {
   }, []);
 
   const formatPrice = useCallback(
-    (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    (n: number) =>
+      n.toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
     []
   );
 

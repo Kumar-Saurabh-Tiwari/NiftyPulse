@@ -1,25 +1,38 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useLayoutEffect, useCallback } from 'react';
 import type { Theme } from '@/lib/types';
+
+const STORAGE_KEY = 'niftypulse-theme';
+
+function readStoredTheme(): Theme {
+  if (typeof window === 'undefined') return 'dark';
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === 'light' || stored === 'dark') return stored;
+  } catch {
+    /* noop */
+  }
+  return 'dark';
+}
+
+function applyThemeClass(theme: Theme) {
+  const root = document.documentElement;
+  root.classList.toggle('dark', theme === 'dark');
+  root.style.colorScheme = theme;
+}
 
 export function useTheme(): {
   theme: Theme;
   toggleTheme: () => void;
 } {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === 'undefined') return 'dark';
-    const stored = localStorage.getItem('niftypulse-theme');
-    if (stored === 'light' || stored === 'dark') return stored;
-    return 'dark';
-  });
+  const [theme, setTheme] = useState<Theme>(readStoredTheme);
 
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
+  useLayoutEffect(() => {
+    applyThemeClass(theme);
+    try {
+      localStorage.setItem(STORAGE_KEY, theme);
+    } catch {
+      /* noop */
     }
-    localStorage.setItem('niftypulse-theme', theme);
   }, [theme]);
 
   const toggleTheme = useCallback(() => {

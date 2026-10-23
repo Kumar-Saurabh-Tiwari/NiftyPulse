@@ -23,9 +23,10 @@ export function MarketOverviewCard({
   const { formatPrice } = useFormatPrice();
   const isUp = index.change >= 0;
 
+  const range = index.dayHigh - index.dayLow;
   const dayRangePercent =
-    index.dayHigh > index.dayLow
-      ? ((index.price - index.dayLow) / (index.dayHigh - index.dayLow)) * 100
+    range > 0
+      ? Math.min(100, Math.max(0, ((index.price - index.dayLow) / range) * 100))
       : 50;
 
   return (
@@ -37,14 +38,9 @@ export function MarketOverviewCard({
       whileHover={{ y: -4 }}
       onClick={() => onClick(index.symbol)}
       className={`glass-card group relative cursor-pointer overflow-hidden rounded-2xl p-5 transition-all hover:shadow-2xl ${
-        isActive
-          ? isUp
-            ? 'glow-bull'
-            : 'glow-bear'
-          : ''
+        isActive ? (isUp ? 'glow-bull' : 'glow-bear') : ''
       }`}
     >
-      {/* Background glow */}
       <div
         className={`pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full opacity-20 blur-3xl transition-opacity group-hover:opacity-40 ${
           isUp ? 'bg-emerald-500' : 'bg-rose-500'
@@ -52,7 +48,6 @@ export function MarketOverviewCard({
       />
 
       <div className="relative">
-        {/* Header Row */}
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-2">
@@ -60,7 +55,7 @@ export function MarketOverviewCard({
                 {index.symbol}
               </h3>
               {isActive && (
-                <span className="flex h-1.5 w-1.5">
+                <span className="relative flex h-1.5 w-1.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 </span>
@@ -69,11 +64,13 @@ export function MarketOverviewCard({
             <p className="text-xs text-muted-foreground">{index.name}</p>
           </div>
           <button
+            type="button"
+            aria-label={pinned ? 'Unpin' : 'Pin'}
             onClick={(e) => {
               e.stopPropagation();
               onTogglePin(index.symbol);
             }}
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <motion.div
               animate={{ rotate: pinned ? 0 : -45, scale: pinned ? 1 : 0.9 }}
@@ -88,7 +85,6 @@ export function MarketOverviewCard({
           </button>
         </div>
 
-        {/* Price */}
         <motion.div
           key={index.price}
           initial={
@@ -107,7 +103,6 @@ export function MarketOverviewCard({
           </span>
         </motion.div>
 
-        {/* Change badges */}
         <div className="mt-2 flex items-center gap-2">
           <span
             className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold ${
@@ -132,22 +127,30 @@ export function MarketOverviewCard({
           </span>
         </div>
 
-        {/* Day Range Slider */}
+        {/* Day Range progress bar */}
         <div className="mt-4">
-          <div className="mb-1 flex items-center justify-between text-[10px] text-muted-foreground">
+          <div className="mb-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
             <span>L: {formatPrice(index.dayLow)}</span>
             <span>Day Range</span>
             <span>H: {formatPrice(index.dayHigh)}</span>
           </div>
-          <div className="relative h-1.5 w-full rounded-full bg-muted">
+          <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <motion.div
+              className={`absolute inset-y-0 left-0 rounded-full ${
+                isUp ? 'bg-emerald-500/70' : 'bg-rose-500/70'
+              }`}
+              initial={false}
+              animate={{ width: `${dayRangePercent}%` }}
+              transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+            />
             <div
-              className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-background bg-emerald-500 shadow-lg transition-all duration-500"
-              style={{ left: `calc(${Math.min(Math.max(dayRangePercent, 0), 100)}% - 6px)` }}
+              className="absolute top-1/2 z-10 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-background bg-foreground shadow-md transition-all duration-500"
+              style={{ left: `calc(${dayRangePercent}% - 6px)` }}
+              title={formatPrice(index.price)}
             />
           </div>
         </div>
 
-        {/* Stat Pills */}
         <div className="mt-4 flex flex-wrap gap-1.5">
           <StatPill label="OPEN" value={formatPrice(index.open)} />
           <StatPill label="PREV" value={formatPrice(index.prevClose)} />
@@ -161,7 +164,7 @@ export function MarketOverviewCard({
 
 function StatPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center gap-1 rounded-md border border-white/5 bg-white/5 px-2 py-1">
+    <div className="flex items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-2 py-1">
       <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
         {label}
       </span>

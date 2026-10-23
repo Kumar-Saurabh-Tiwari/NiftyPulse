@@ -1,10 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
-export function useLocalStorage<T>(key: string, initial: T): [T, (v: T | ((prev: T) => T)) => void] {
+export function useLocalStorage<T>(
+  key: string,
+  initial: T
+): [T, (v: T | ((prev: T) => T)) => void] {
   const [value, setValue] = useState<T>(() => {
     try {
       const stored = localStorage.getItem(key);
-      return stored ? (JSON.parse(stored) as T) : initial;
+      return stored != null ? (JSON.parse(stored) as T) : initial;
     } catch {
       return initial;
     }
@@ -25,15 +28,19 @@ export function useLocalStorage<T>(key: string, initial: T): [T, (v: T | ((prev:
     [key]
   );
 
+  // Sync across tabs
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(key);
-      if (stored) setValue(JSON.parse(stored) as T);
-    } catch {
-      /* noop */
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== key || e.newValue == null) return;
+      try {
+        setValue(JSON.parse(e.newValue) as T);
+      } catch {
+        /* noop */
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [key]);
 
   return [value, setStoredValue];
 }

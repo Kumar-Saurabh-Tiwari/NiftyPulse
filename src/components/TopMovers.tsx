@@ -40,6 +40,11 @@ export function TopMovers({ stocks, lastTick }: TopMoversProps) {
       </div>
 
       <div className="mt-4 space-y-1">
+        {!stocks.length ? (
+          <div className="py-10 text-center text-xs text-muted-foreground">
+            No stock movers available yet.
+          </div>
+        ) : (
         <AnimatePresence mode="wait">
           <motion.div
             key={tab}
@@ -56,10 +61,10 @@ export function TopMovers({ stocks, lastTick }: TopMoversProps) {
                 <motion.div
                   key={stock.symbol}
                   whileHover={{ x: 2 }}
-                  className="flex items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/5"
+                  className="flex items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-muted/50"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/5">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
                       <span className="text-[10px] font-bold">
                         {stock.symbol.slice(0, 2)}
                       </span>
@@ -117,6 +122,7 @@ export function TopMovers({ stocks, lastTick }: TopMoversProps) {
             })}
           </motion.div>
         </AnimatePresence>
+        )}
       </div>
     </div>
   );

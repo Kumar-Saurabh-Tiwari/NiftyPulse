@@ -67,7 +67,7 @@ export function MarketBreadthGauge({ breadth }: MarketBreadthGaugeProps) {
         />
       </div>
 
-      <div className="mt-4 rounded-lg bg-white/5 p-3 text-center">
+      <div className="mt-4 rounded-lg bg-muted/50 p-3 text-center">
         <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           Market Sentiment
         </p>
