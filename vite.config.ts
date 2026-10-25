@@ -1,13 +1,65 @@
 import path from 'path';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import {
+  defineConfig,
+  loadEnv,
+  type Plugin,
+  type ViteDevServer,
+} from 'vite';
+import { handleMarketRequest } from './server/market';
+import { handleNewsRequest } from './server/news';
+
+function localApiRoutes(
+  server: Pick<ViteDevServer, 'middlewares'>,
+  env: Record<string, string>
+): void {
+  server.middlewares.use((request, response, next) => {
+    const url = new URL(request.url ?? '/', 'http://localhost');
+    if (url.pathname !== '/api/market' && url.pathname !== '/api/news') {
+      next();
+      return;
+    }
+
+    const result =
+      url.pathname === '/api/market'
+        ? handleMarketRequest(url, request.method, env)
+        : handleNewsRequest(request.method, env);
+
+    void result.then(
+      (apiResult) => {
+        response.statusCode = apiResult.status;
+        response.setHeader('Content-Type', 'application/json; charset=utf-8');
+        response.setHeader('Cache-Control', apiResult.cacheControl);
+        response.end(JSON.stringify(apiResult.body));
+      },
+      next
+    );
+  });
+}
+
+function serverApiPlugin(): Plugin {
+  let env: Record<string, string> = {};
+  return {
+    name: 'niftypulse-server-api',
+    config(_config, { mode }) {
+      env = loadEnv(mode, process.cwd(), '');
+    },
+    configureServer(server) {
+      localApiRoutes(server, env);
+    },
+    configurePreviewServer(server) {
+      localApiRoutes(server, env);
+    },
+  };
+}
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), serverApiPlugin()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+    dedupe: ['react', 'react-dom'],
   },
   server: {
     proxy: {

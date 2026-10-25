@@ -18,6 +18,7 @@ interface WatchlistProps {
   stocks: StockData[];
   lastTick: Record<string, 'up' | 'down' | 'same'>;
   onSelectIndex: (symbol: string) => void;
+  onSelectStock: (symbol: string) => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
 }
@@ -31,6 +32,7 @@ export function Watchlist({
   stocks,
   lastTick,
   onSelectIndex,
+  onSelectStock,
   searchQuery,
   setSearchQuery,
 }: WatchlistProps) {
@@ -191,10 +193,13 @@ export function Watchlist({
               >
                 <GripVertical className="h-4 w-4 cursor-grab text-muted-foreground/40 opacity-40 touch-none sm:opacity-0 sm:group-hover:opacity-100" />
 
-                <div
-                  className="flex flex-1 cursor-pointer items-center justify-between"
+                <button
+                  type="button"
+                  className="flex flex-1 items-center justify-between text-left"
                   onClick={() =>
-                    item.type === 'index' && onSelectIndex(item.symbol)
+                    item.type === 'index'
+                      ? onSelectIndex(item.symbol)
+                      : onSelectStock(item.symbol)
                   }
                 >
                   <div>
@@ -234,7 +239,7 @@ export function Watchlist({
                       </>
                     )}
                   </div>
-                </div>
+                </button>
 
                 <button
                   type="button"

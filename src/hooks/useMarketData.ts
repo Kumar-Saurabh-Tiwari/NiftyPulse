@@ -18,7 +18,7 @@ export interface MarketState {
   refresh: () => void;
 }
 
-export function useMarketData(intervalMs: number = 30000): MarketState {
+export function useMarketData(intervalMs: number | null = 30000): MarketState {
   const [indices, setIndices] = useState<IndexData[]>([]);
   const [stocks, setStocks] = useState<StockData[]>([]);
   const [sectors, setSectors] = useState<SectorData[]>([]);
@@ -83,13 +83,16 @@ export function useMarketData(intervalMs: number = 30000): MarketState {
     };
 
     void applySnapshot(true);
-    const id = setInterval(() => {
-      void applySnapshot(false);
-    }, intervalMs);
+    const id =
+      intervalMs === null
+        ? null
+        : setInterval(() => {
+            void applySnapshot(false);
+          }, intervalMs);
 
     return () => {
       cancelled = true;
-      clearInterval(id);
+      if (id !== null) clearInterval(id);
       controller.abort();
     };
   }, [intervalMs, refreshKey]);

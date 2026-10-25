@@ -21,6 +21,30 @@ export interface PricePoint {
   volume: number;
 }
 
+export type MarketProvider = 'yahoo' | 'twelvedata' | 'fmp';
+
+export interface CompanyProfile {
+  symbol?: string;
+  name?: string;
+  exchange?: string;
+  currency?: string;
+  sector?: string;
+  industry?: string;
+  description?: string;
+  website?: string;
+  marketCap?: number;
+  beta?: number;
+}
+
+export interface MarketNewsArticle {
+  title: string;
+  description?: string;
+  url: string;
+  image?: string;
+  publishedAt: string;
+  source: string;
+}
+
 export interface StockData {
   symbol: string;
   name: string;

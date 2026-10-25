@@ -5,6 +5,8 @@ import type {
   MarketBreadth,
   PricePoint,
   Timeframe,
+  MarketProvider,
+  CompanyProfile,
 } from '@/lib/types';
 import {
   INDEX_SYMBOLS,
@@ -30,6 +32,33 @@ export interface MarketSnapshot {
 
 function round2(n: number): number {
   return Number(n.toFixed(2));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isPricePoint(value: unknown): value is PricePoint {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.time === 'string' &&
+    !Number.isNaN(Date.parse(value.time)) &&
+    typeof value.price === 'number' &&
+    Number.isFinite(value.price) &&
+    typeof value.volume === 'number' &&
+    Number.isFinite(value.volume) &&
+    value.volume >= 0
+  );
+}
+
+export class MarketDataError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: string
+  ) {
+    super(message);
+    this.name = 'MarketDataError';
+  }
 }
 
 function firstValid(values: (number | null)[] | undefined): number | undefined {
@@ -273,8 +302,52 @@ export async function fetchMarketSnapshot(
 export async function fetchSymbolHistory(
   appSymbol: string,
   timeframe: Timeframe,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  provider: MarketProvider = 'yahoo'
 ): Promise<PricePoint[]> {
+  if (provider !== 'yahoo') {
+    const query = new URLSearchParams({
+      provider,
+      dataset: 'history',
+      symbol: appSymbol,
+      timeframe,
+    });
+    const response = await fetch(`/api/market?${query.toString()}`, {
+      signal,
+      headers: { Accept: 'application/json' },
+    });
+    const data: unknown = await response.json().catch(() => undefined);
+    if (!response.ok) {
+      const message =
+        typeof data === 'object' &&
+        data !== null &&
+        'message' in data &&
+        typeof data.message === 'string'
+          ? data.message
+          : `Market history request failed (${response.status}).`;
+      const code =
+        typeof data === 'object' &&
+        data !== null &&
+        'error' in data &&
+        typeof data.error === 'string'
+          ? data.error
+          : undefined;
+      throw new MarketDataError(message, code);
+    }
+    if (
+      typeof data !== 'object' ||
+      data === null ||
+      !('history' in data) ||
+      !Array.isArray(data.history)
+    ) {
+      throw new Error('The market history service returned an invalid response.');
+    }
+    if (!data.history.every(isPricePoint)) {
+      throw new Error('The market history service returned invalid chart points.');
+    }
+    return data.history;
+  }
+
   const meta = INDEX_SYMBOLS[appSymbol] ?? STOCK_SYMBOLS[appSymbol];
   if (!meta) return [];
   const { range, interval } = timeframeToYahoo(timeframe);
@@ -284,6 +357,78 @@ export async function fetchSymbolHistory(
     return history.map((p) => ({ ...p, price: round2(p.price * 1.0025) }));
   }
   return history;
+}
+
+export async function fetchCompanyProfile(
+  appSymbol: string,
+  signal?: AbortSignal
+): Promise<CompanyProfile> {
+  const query = new URLSearchParams({
+    provider: 'fmp',
+    dataset: 'profile',
+    symbol: appSymbol,
+  });
+  const response = await fetch(`/api/market?${query.toString()}`, {
+    signal,
+    headers: { Accept: 'application/json' },
+  });
+  const data: unknown = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    const message =
+      typeof data === 'object' &&
+      data !== null &&
+      'message' in data &&
+      typeof data.message === 'string'
+        ? data.message
+        : `Company profile request failed (${response.status}).`;
+    const code =
+      typeof data === 'object' &&
+      data !== null &&
+      'error' in data &&
+      typeof data.error === 'string'
+        ? data.error
+        : undefined;
+    throw new MarketDataError(message, code);
+  }
+  if (
+    typeof data !== 'object' ||
+    data === null ||
+    !('profile' in data) ||
+    !isRecord(data.profile)
+  ) {
+    throw new Error('The company profile service returned an invalid response.');
+  }
+  const profile = data.profile;
+  const stringFields = [
+    'symbol',
+    'name',
+    'exchange',
+    'currency',
+    'sector',
+    'industry',
+    'description',
+    'website',
+  ] as const;
+  const numberFields = ['marketCap', 'beta'] as const;
+  const normalized: CompanyProfile = {};
+  for (const key of stringFields) {
+    const value = profile[key];
+    if (value !== undefined && typeof value !== 'string') {
+      throw new Error('The company profile service returned invalid profile data.');
+    }
+    if (typeof value === 'string') normalized[key] = value;
+  }
+  for (const key of numberFields) {
+    const value = profile[key];
+    if (
+      value !== undefined &&
+      (typeof value !== 'number' || !Number.isFinite(value))
+    ) {
+      throw new Error('The company profile service returned invalid profile data.');
+    }
+    if (typeof value === 'number') normalized[key] = value;
+  }
+  return normalized;
 }
 
 export { INDEX_SYMBOLS, STOCK_SYMBOLS };

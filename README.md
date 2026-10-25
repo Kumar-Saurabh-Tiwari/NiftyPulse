@@ -27,9 +27,13 @@ npm install
 npm run dev
 ```
 
-The Vite development server proxies Yahoo Finance requests through
-`/api/yahoo`, avoiding browser CORS restrictions. Open the URL printed by Vite
-(usually `http://localhost:5173`).
+The Vite development server routes Yahoo Finance requests through `/api/yahoo`
+and provides local server-side handlers for `/api/market` and `/api/news`.
+Provider API keys are read server-side from `.env`; they are not exposed to the
+browser. Copy `.env.example` to `.env` and fill in the provider keys you use.
+Open the URL printed by Vite (usually `http://localhost:5173`).
+
+Run the provider normalization/policy tests with `npm test`.
 
 ## Production build
 
@@ -45,8 +49,15 @@ assets in `dist/`.
 
 The included `api/yahoo.ts` is a Vercel serverless function that forwards
 validated quote requests to Yahoo Finance. Deploy the repository root as a
-Vercel project so Vercel discovers the `api/` directory alongside the Vite
-application.
+Vercel project so Vercel discovers the `api/` functions alongside the Vite
+application. Add the following variables in the Vercel project's Environment
+Variables settings (Preview and Production as needed):
+
+- `TWELVE_DATA_API_KEY`
+- `FINANCIAL_MODELING_PREP_API_KEY`
+- `GNEWS_API_KEY`
+
+Do not add a `VITE_` prefix to these credentials.
 
 Check the deployed API directly:
 
@@ -57,6 +68,33 @@ https://nifty-pulse-seven.vercel.app/api/yahoo?symbol=%5ENSEI&range=1d&interval=
 A successful response contains Yahoo Finance chart JSON with a top-level
 `chart.result` property. A 400 response means the query is invalid; a 502 means
 the upstream finance service could not be reached.
+
+## Additional data providers
+
+- Yahoo Finance remains the default for all index/stock quotes and chart
+  history. The provider control changes **historical chart data only**; quote
+  cards, breadth, movers, and ticker values continue to use Yahoo, avoiding
+  mixed-provider price calculations.
+- Twelve Data and Financial Modeling Prep are offered for listed stock charts
+  on daily timeframes (1M and longer). NIFTY/index symbols and intraday
+  timeframes remain on Yahoo. The Twelve Data mapping uses NSE symbols and the
+  provider's `NSE` exchange code (`XNSE` MIC).
+  Twelve Data currently lists XNSE and XBOM as end-of-day exchanges with
+  Grow/Venture as the minimum individual plans; actual access depends on the
+  account's subscription. No automatic provider fallback is performed.
+- Financial Modeling Prep supplies the optional stock company-profile card and
+  daily historical series. Symbol coverage and endpoint access depend on the
+  FMP subscription; unsupported symbols and denied access are shown in the UI.
+- GNews supplies the separate India-market headlines panel. The free plan is
+  documented as 100 requests/day, up to 10 articles/request, and a 12-hour
+  delay; availability and freshness vary by plan. Headlines are cached briefly
+  server-side to avoid repeated requests.
+
+The app uses the provider's documented endpoints and returns normalized
+historical points/profile fields. A successful deployment does not by itself
+verify a provider account's subscription or symbol entitlements. If access is
+missing, the relevant chart or card reports that error while Yahoo-powered
+market data continues to work.
 
 ## Data and privacy
 
@@ -75,4 +113,3 @@ The application includes NiftyPulse Open Graph and Twitter metadata and a
 branded preview image at `/niftypulse-preview.png`. Link-preview services may
 cache older preview cards; after deploying, use the relevant platform's link
 debugger or cache refresh to request the updated image.
-

@@ -6,16 +6,18 @@ import { Header } from '@/components/Header';
 import { TickerTape } from '@/components/TickerTape';
 import { MarketOverviewCard } from '@/components/MarketOverviewCard';
 import { IndexChart } from '@/components/IndexChart';
-import { MarketBreadthGauge } from '@/components/MarketBreadthGauge';
 import { TopMovers } from '@/components/TopMovers';
 import { SectoralHeatmap } from '@/components/SectoralHeatmap';
 import { Watchlist, type WatchlistItem } from '@/components/Watchlist';
 import { SearchModal } from '@/components/SearchModal';
 import { DashboardPlaceholder } from '@/components/DashboardPlaceholder';
+import { MarketNewsPanel } from '@/components/MarketNewsPanel';
+import { CompanyProfileCard } from '@/components/CompanyProfileCard';
 import { useTheme } from '@/hooks/useTheme';
 import { useMarketData, useFormatPrice } from '@/hooks/useMarketData';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import type { IndexData } from '@/lib/types';
+import type { IndexData, MarketProvider } from '@/lib/types';
+import { RefreshCw } from 'lucide-react';
 
 const DEFAULT_PINS: string[] = ['NIFTY 50', 'NIFTY BANK'];
 const DEFAULT_WATCHLIST: WatchlistItem[] = [
@@ -37,24 +39,27 @@ function resolveHeroSymbols(pins: string[]): string[] {
 
 function App() {
   const { theme, toggleTheme } = useTheme();
+  const [autoRefresh, setAutoRefresh] = useState(true);
   const {
     indices,
     stocks,
     sectors,
-    breadth,
     lastTick,
     source,
     loading,
     error,
     updatedAt,
     refresh,
-  } = useMarketData(30_000);
+  } = useMarketData(autoRefresh ? 30_000 : null);
   const [pins, setPins] = useLocalStorage<string[]>('niftypulse-pins', DEFAULT_PINS);
   const [watchlist, setWatchlist] = useLocalStorage<WatchlistItem[]>(
     'niftypulse-watchlist',
     DEFAULT_WATCHLIST
   );
   const [activeSymbol, setActiveSymbol] = useState<string>('NIFTY 50');
+  const [unavailableProviders, setUnavailableProviders] = useState<
+    Partial<Record<MarketProvider, boolean>>
+  >({});
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const chartSectionRef = useRef<HTMLDivElement>(null);
@@ -128,6 +133,20 @@ function App() {
     [handleAdd]
   );
 
+  const handleOpenStockChart = useCallback((symbol: string) => {
+    setActiveSymbol(symbol);
+    window.requestAnimationFrame(() =>
+      chartSectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+    );
+  }, []);
+
+  const markProviderUnavailable = useCallback((provider: MarketProvider) => {
+    setUnavailableProviders((current) => ({ ...current, [provider]: true }));
+  }, []);
+
   const handleSelectIndex = useCallback((symbol: string) => {
     setActiveSymbol(symbol);
     window.requestAnimationFrame(() =>
@@ -138,8 +157,11 @@ function App() {
     );
   }, []);
 
-  const activeIndex: IndexData | undefined =
-    indices.find((i) => i.symbol === activeSymbol) ?? indices[0];
+  const activeInstrument =
+    indices.find((i) => i.symbol === activeSymbol) ??
+    stocks.find((s) => s.symbol === activeSymbol) ??
+    indices[0];
+  const activeStock = stocks.find((s) => s.symbol === activeSymbol);
 
   const heroSymbols = useMemo(() => resolveHeroSymbols(pins), [pins]);
   const heroCards = heroSymbols
@@ -187,14 +209,38 @@ function App() {
                     ? 'Live quotes · Yahoo Finance (NSE / BSE)'
                     : 'Live market data unavailable'}
             </span>
-            <div className="flex items-center gap-3">
-              {updatedLabel && <span>Updated {updatedLabel}</span>}
+            <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+              {updatedLabel && <span className="hidden sm:inline">Updated {updatedLabel}</span>}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={autoRefresh}
+                aria-label="Automatic quote refresh every 30 seconds"
+                onClick={() => setAutoRefresh((enabled) => !enabled)}
+                className="inline-flex items-center gap-2 rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 font-semibold text-foreground transition hover:bg-muted/70"
+              >
+                <span className="text-[11px]">Auto · 30s</span>
+                <span
+                  aria-hidden="true"
+                  className={`relative h-4 w-7 rounded-full transition-colors ${
+                    autoRefresh ? 'bg-emerald-500' : 'bg-muted-foreground/40'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-transform ${
+                      autoRefresh ? 'translate-x-3.5' : 'translate-x-0.5'
+                    }`}
+                  />
+                </span>
+              </button>
               <button
                 type="button"
                 onClick={refresh}
-                className="rounded-md bg-foreground/10 px-2.5 py-1 font-semibold text-foreground transition hover:bg-foreground/15"
+                aria-label="Refresh market data now"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-foreground/10 px-2.5 py-1.5 font-semibold text-foreground transition hover:bg-foreground/15"
               >
-                Refresh
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Refresh</span>
               </button>
             </div>
           </div>
@@ -226,11 +272,13 @@ function App() {
 
           <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div ref={chartSectionRef} className="lg:col-span-2">
-              {activeIndex ? (
+              {activeInstrument ? (
                 <IndexChart
-                  index={activeIndex}
-                  tick={lastTick[activeIndex.symbol]}
+                  index={activeInstrument}
+                  tick={lastTick[activeInstrument.symbol]}
                   dataSource={source}
+                  unavailableProviders={unavailableProviders}
+                  onProviderUnavailable={markProviderUnavailable}
                 />
               ) : (
                 <div className="glass-card flex h-[340px] items-center justify-center rounded-2xl text-sm text-muted-foreground">
@@ -239,7 +287,13 @@ function App() {
               )}
             </div>
             <div className="space-y-4">
-              <MarketBreadthGauge breadth={breadth} />
+              <MarketNewsPanel />
+              {activeStock && (
+                <CompanyProfileCard
+                  symbol={activeStock.symbol}
+                  onProviderUnavailable={markProviderUnavailable}
+                />
+              )}
             </div>
           </div>
 
@@ -257,6 +311,7 @@ function App() {
                 stocks={stocks}
                 lastTick={lastTick}
                 onSelectIndex={setActiveSymbol}
+                onSelectStock={handleOpenStockChart}
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
               />

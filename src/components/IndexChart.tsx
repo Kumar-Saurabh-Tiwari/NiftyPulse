@@ -1,5 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { LoaderCircle } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Area,
   Line,
@@ -14,12 +22,19 @@ import {
 } from 'recharts';
 import type { IndexData, Timeframe, ChartView, PricePoint } from '@/lib/types';
 import { useFormatPrice } from '@/hooks/useMarketData';
-import { fetchSymbolHistory } from '@/services/marketDataService';
+import {
+  fetchSymbolHistory,
+  MarketDataError,
+} from '@/services/marketDataService';
+import type { MarketProvider, StockData } from '@/lib/types';
+import { supportsChartHistory } from '@/lib/marketCapabilities';
 
 interface IndexChartProps {
-  index: IndexData;
+  index: IndexData | StockData;
   tick: 'up' | 'down' | 'same' | undefined;
   dataSource?: 'live' | 'unavailable';
+  unavailableProviders: Partial<Record<MarketProvider, boolean>>;
+  onProviderUnavailable: (provider: MarketProvider) => void;
 }
 
 const TIMEFRAMES: Timeframe[] = ['1D', '1W', '1M', '6M', '1Y', '5Y'];
@@ -43,42 +58,108 @@ export function IndexChart({
   index,
   tick,
   dataSource = 'live',
+  unavailableProviders,
+  onProviderUnavailable,
 }: IndexChartProps) {
   const [timeframe, setTimeframe] = useState<Timeframe>('1D');
+  const [provider, setProvider] = useState<MarketProvider>('yahoo');
   const [view, setView] = useState<ChartView>('area');
   const [showVolume, setShowVolume] = useState(false);
   const [showMovingAverage, setShowMovingAverage] = useState(false);
-  const [history, setHistory] = useState<PricePoint[]>(index.history);
+  const currentHistory = useMemo(() => index.history ?? [], [index.history]);
+  const [history, setHistory] = useState<PricePoint[]>(currentHistory);
+  const [historyProvider, setHistoryProvider] =
+    useState<MarketProvider>('yahoo');
+  const [historyTimeframe, setHistoryTimeframe] = useState<Timeframe>('1D');
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
+  const [unsupportedSymbols, setUnsupportedSymbols] = useState<
+    Record<string, boolean>
+  >({});
   const prefersReducedMotion = useReducedMotion();
   const { formatPrice, formatCompact } = useFormatPrice();
   const isUp = index.change >= 0;
   const color = isUp ? '#10B981' : '#EF4444';
+  const isStock = 'sector' in index;
+  const instrumentType = isStock ? 'stock' : 'index';
+  const canUseAlternativeProvider = supportsChartHistory(
+    'twelvedata',
+    instrumentType,
+    timeframe
+  );
+  const isProviderUnavailable = (candidate: Exclude<MarketProvider, 'yahoo'>) =>
+    unavailableProviders[candidate] ||
+    unsupportedSymbols[`${index.symbol}:${candidate}`];
 
   useEffect(() => {
-    if (timeframe === '1D') {
-      setHistory(index.history);
+    if (!isStock && provider !== 'yahoo') setProvider('yahoo');
+  }, [isStock, provider]);
+
+  useEffect(() => {
+    if (provider !== 'yahoo' || timeframe !== '1D') return;
+    setHistory(currentHistory);
+    setHistoryProvider('yahoo');
+    setHistoryTimeframe('1D');
+    setHistoryError(null);
+    setHistoryLoading(false);
+  }, [currentHistory, provider, timeframe]);
+
+  useEffect(() => {
+    if (provider === 'yahoo' && timeframe === '1D') return;
+    if (provider !== 'yahoo' && !canUseAlternativeProvider) {
+      setProvider('yahoo');
+      return;
     }
-  }, [index.history, timeframe, index.symbol]);
-
-  useEffect(() => {
-    if (timeframe === '1D') return;
 
     const controller = new AbortController();
     setHistoryLoading(true);
-    fetchSymbolHistory(index.symbol, timeframe, controller.signal)
+    setHistoryError(null);
+    fetchSymbolHistory(index.symbol, timeframe, controller.signal, provider)
       .then((points) => {
-        if (points.length) setHistory(points);
+        if (controller.signal.aborted) return;
+        setHistory(points);
+        setHistoryProvider(provider);
+        setHistoryTimeframe(timeframe);
       })
-      .catch((e) => {
-        if ((e as Error).name !== 'AbortError') {
-          console.warn('[IndexChart] history fetch failed', e);
+      .catch((reason: unknown) => {
+        if (
+          !controller.signal.aborted &&
+          !(reason instanceof Error && reason.name === 'AbortError')
+        ) {
+          setHistoryError(
+            reason instanceof Error
+              ? reason.message
+              : 'Could not load chart history.'
+          );
+          if (reason instanceof MarketDataError) {
+            if (
+              reason.code === 'provider_plan_required' ||
+              reason.code === 'provider_access_denied'
+            ) {
+              onProviderUnavailable(provider);
+            } else if (reason.code === 'unsupported_symbol') {
+              setUnsupportedSymbols((current) => ({
+                ...current,
+                [`${index.symbol}:${provider}`]: true,
+              }));
+            }
+          }
         }
       })
-      .finally(() => setHistoryLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setHistoryLoading(false);
+      });
 
     return () => controller.abort();
-  }, [index.symbol, timeframe]);
+  }, [
+    canUseAlternativeProvider,
+    historyRefreshKey,
+    index.symbol,
+    onProviderUnavailable,
+    provider,
+    timeframe,
+  ]);
 
   const priceBounds = useMemo(() => {
     if (!history.length) return { low: 0, pad: 50 };
@@ -204,8 +285,10 @@ export function IndexChart({
               </span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              {dataSource === 'live' ? 'Live Yahoo Finance' : 'Waiting for live data'} feed
-              {historyLoading ? ' · loading chart…' : ''} · Volume{' '}
+              {dataSource === 'live'
+                ? 'Live quotes · Yahoo Finance'
+                : 'Waiting for live Yahoo Finance data'}{' '}
+              · Volume{' '}
               {formatCompact(index.volume)}
             </p>
           </div>
@@ -217,7 +300,15 @@ export function IndexChart({
               <button
                 key={tf}
                 type="button"
-                onClick={() => setTimeframe(tf)}
+                onClick={() => {
+                  setTimeframe(tf);
+                  if (
+                    provider !== 'yahoo' &&
+                    (tf === '1D' || tf === '1W')
+                  ) {
+                    setProvider('yahoo');
+                  }
+                }}
                 aria-pressed={timeframe === tf}
                 className={`relative shrink-0 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                   timeframe === tf
@@ -255,6 +346,67 @@ export function IndexChart({
             ))}
           </div>
 
+          <div className="flex items-center gap-1.5 rounded-lg bg-muted/50 px-2.5 py-1">
+            <span className="text-xs font-semibold text-muted-foreground">
+              Chart history
+            </span>
+            {historyLoading && (
+              <LoaderCircle
+                className="h-3.5 w-3.5 animate-spin text-emerald-500 motion-reduce:animate-none"
+                aria-label="Loading chart history"
+              />
+            )}
+            <Select
+              value={provider}
+              onValueChange={(selected) => {
+                if (
+                  selected === 'yahoo' ||
+                  selected === 'twelvedata' ||
+                  selected === 'fmp'
+                ) {
+                  setProvider(selected);
+                  if (
+                    selected !== 'yahoo' &&
+                    (timeframe === '1D' || timeframe === '1W')
+                  ) {
+                    setTimeframe('1M');
+                  }
+                }
+              }}
+            >
+              <SelectTrigger
+                aria-label="Chart history provider"
+                className="h-7 w-auto min-w-[120px] gap-1 border-0 bg-transparent px-1 py-0 text-xs font-semibold shadow-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent
+                align="end"
+                className="motion-reduce:animate-none motion-reduce:transition-none"
+              >
+                <SelectItem value="yahoo">Yahoo Finance · default</SelectItem>
+                <SelectItem
+                  value="twelvedata"
+                  disabled={
+                    !isStock || isProviderUnavailable('twelvedata')
+                  }
+                >
+                  Twelve Data · NSE EOD
+                  {isProviderUnavailable('twelvedata') ? ' · unavailable' : ''}
+                </SelectItem>
+                <SelectItem
+                  value="fmp"
+                  disabled={
+                    !isStock || isProviderUnavailable('fmp')
+                  }
+                >
+                  Financial Modeling Prep
+                  {isProviderUnavailable('fmp') ? ' · unavailable' : ''}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="flex w-fit items-center gap-1">
             <button
               type="button"
@@ -283,6 +435,22 @@ export function IndexChart({
           </div>
         </div>
       </div>
+
+      {!isStock && (
+        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+          Alternate providers support stock history. Select a stock from your
+          watchlist to switch providers; the chart will move to a supported
+          timeframe automatically.
+        </p>
+      )}
+      {isStock &&
+        (isProviderUnavailable('twelvedata') ||
+          isProviderUnavailable('fmp')) && (
+          <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+            A provider is unavailable for this account or symbol. Check its
+            subscription and exchange coverage, or try another stock.
+          </p>
+        )}
 
       <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-muted/30 px-3 py-2.5 sm:max-w-md">
         <div>
@@ -317,6 +485,42 @@ export function IndexChart({
       </div>
 
       <div className="mt-6 h-[280px] w-full sm:h-[340px] md:h-[400px]">
+        <div
+          className="mb-2 flex min-h-4 flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground"
+          aria-live="polite"
+        >
+          <span>
+            Chart source: {historyProvider === 'yahoo' ? 'Yahoo Finance' : historyProvider === 'twelvedata' ? 'Twelve Data · end-of-day' : 'Financial Modeling Prep · end-of-day'}
+            {historyTimeframe !== timeframe
+              ? historyError
+                ? ` · showing ${historyTimeframe} data; ${timeframe} update failed`
+                : ` · showing ${historyTimeframe} data while ${timeframe} loads`
+              : ''}
+          </span>
+          {historyLoading && (
+            <span role="status">Updating from {provider}…</span>
+          )}
+          {historyError && (
+            <>
+              <span className="text-rose-500" role="alert">
+                {historyError} Showing the last available {historyProvider} chart data.
+              </span>
+              <button
+                type="button"
+                onClick={() => setHistoryRefreshKey((key) => key + 1)}
+                className="font-semibold text-foreground underline-offset-2 hover:underline"
+              >
+                Retry
+              </button>
+            </>
+          )}
+          {!isStock && (
+            <span>Alternative providers support listed stocks only; index charts remain on Yahoo Finance.</span>
+          )}
+          {isStock && (timeframe === '1D' || timeframe === '1W') && (
+            <span>Alternative providers are available for daily history (1M and longer).</span>
+          )}
+        </div>
         {!chartData.length ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
             <p className="text-sm font-medium text-muted-foreground">
