@@ -113,3 +113,21 @@ The application includes NiftyPulse Open Graph and Twitter metadata and a
 branded preview image at `/niftypulse-preview.png`. Link-preview services may
 cache older preview cards; after deploying, use the relevant platform's link
 debugger or cache refresh to request the updated image.
+
+## Coming Soon
+
+Parag Parikh Flexi Cap Fund Direct Growth
+
+UTI Nifty 50 Index Fund Direct Growth
+
+Kotak Mid Cap Fund Direct Growth
+
+ICICI Prudential Multi Asset Allocation Fund Direct Growth
+
+Invesco India Mid Cap Fund Direct Growth
+
+HDFC Small Cap Fund Direct Growth
+
+Bandhan Small Cap Fund Direct Growth
+
+Nippon India Large Cap Fund Direct Growth
