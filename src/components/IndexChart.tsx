@@ -1,12 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
-  AreaChart,
   Area,
-  LineChart,
   Line,
   ComposedChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   Tooltip,
@@ -30,6 +29,16 @@ const VIEW_MODES: { key: ChartView; label: string }[] = [
   { key: 'candle', label: 'Bars' },
 ];
 
+interface ChartDataPoint {
+  time: string;
+  price: number;
+  priceOffset: number;
+  volume: number;
+  previousPrice: number;
+  movingAverage: number;
+  movingAverageOffset: number;
+}
+
 export function IndexChart({
   index,
   tick,
@@ -37,8 +46,11 @@ export function IndexChart({
 }: IndexChartProps) {
   const [timeframe, setTimeframe] = useState<Timeframe>('1D');
   const [view, setView] = useState<ChartView>('area');
+  const [showVolume, setShowVolume] = useState(false);
+  const [showMovingAverage, setShowMovingAverage] = useState(false);
   const [history, setHistory] = useState<PricePoint[]>(index.history);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
   const { formatPrice, formatCompact } = useFormatPrice();
   const isUp = index.change >= 0;
   const color = isUp ? '#10B981' : '#EF4444';
@@ -68,29 +80,80 @@ export function IndexChart({
     return () => controller.abort();
   }, [index.symbol, timeframe]);
 
-  const chartData = useMemo(() => {
-    return history.map((p) => ({
-      time: new Date(p.time).toLocaleString('en-IN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        day: '2-digit',
-        month: 'short',
-      }),
-      price: p.price,
-      volume: p.volume,
-    }));
+  const priceBounds = useMemo(() => {
+    if (!history.length) return { low: 0, pad: 50 };
+    const prices = history.map((point) => point.price);
+    const low = Math.min(...prices);
+    const high = Math.max(...prices);
+
+    return {
+      low,
+      pad: Math.max((high - low) * 0.05, high * 0.001, 1),
+    };
   }, [history]);
 
-  const pricePad = useMemo(() => {
-    if (!chartData.length) return 50;
+  const chartData = useMemo(() => {
+    const barBase = priceBounds.low - priceBounds.pad;
+    return history.map((point, index) => {
+      const previousPrice = history[index - 1]?.price ?? point.price;
+      const movingAverageStart = Math.max(0, index - 9);
+      const movingAveragePoints = history.slice(movingAverageStart, index + 1);
+      const movingAverage =
+        movingAveragePoints.reduce((total, item) => total + item.price, 0) /
+        movingAveragePoints.length;
+
+      return {
+        time: new Date(point.time).toLocaleString('en-IN', {
+          hour: '2-digit',
+          minute: '2-digit',
+          day: '2-digit',
+          month: 'short',
+        }),
+        price: point.price,
+        priceOffset: point.price - barBase,
+        volume: point.volume,
+        previousPrice,
+        movingAverage,
+        movingAverageOffset: movingAverage - barBase,
+      };
+    });
+  }, [history, priceBounds]);
+
+  const { pricePad, periodHigh, periodLow, periodChange } = useMemo(() => {
+    if (!chartData.length) {
+      return {
+        pricePad: 50,
+        periodHigh: 0,
+        periodLow: 0,
+        periodChange: 0,
+      };
+    }
     const prices = chartData.map((d) => d.price);
     const min = Math.min(...prices);
     const max = Math.max(...prices);
-    return Math.max((max - min) * 0.05, max * 0.001, 1);
+    const firstPrice = chartData[0].price;
+    const lastPrice = chartData[chartData.length - 1].price;
+
+    return {
+      pricePad: Math.max((max - min) * 0.05, max * 0.001, 1),
+      periodHigh: max,
+      periodLow: min,
+      periodChange:
+        firstPrice === 0 ? 0 : ((lastPrice - firstPrice) / firstPrice) * 100,
+    };
   }, [chartData]);
 
   const gradientId = `gradient-${index.symbol.replace(/\s/g, '')}`;
   const volumeGradientId = `vol-${index.symbol.replace(/\s/g, '')}`;
+  const priceDomain: [number | string, number | string] =
+    view === 'candle'
+      ? [0, periodHigh - periodLow + pricePad * 2]
+      : [`dataMin - ${pricePad}`, `dataMax + ${pricePad}`];
+  const formatAxisPrice = (value: number) =>
+    formatPrice(
+      view === 'candle' ? value + periodLow - pricePad : value
+    );
+  const animationActive = !prefersReducedMotion;
 
   const axisProps = {
     tick: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' },
@@ -155,6 +218,7 @@ export function IndexChart({
                 key={tf}
                 type="button"
                 onClick={() => setTimeframe(tf)}
+                aria-pressed={timeframe === tf}
                 className={`relative shrink-0 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                   timeframe === tf
                     ? 'text-foreground'
@@ -179,6 +243,7 @@ export function IndexChart({
                 key={vm.key}
                 type="button"
                 onClick={() => setView(vm.key)}
+                aria-pressed={view === vm.key}
                 className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                   view === vm.key
                     ? 'bg-foreground/10 text-foreground'
@@ -189,6 +254,65 @@ export function IndexChart({
               </button>
             ))}
           </div>
+
+          <div className="flex w-fit items-center gap-1">
+            <button
+              type="button"
+              aria-pressed={showVolume}
+              onClick={() => setShowVolume((visible) => !visible)}
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                showVolume
+                  ? 'bg-foreground/10 text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Volume
+            </button>
+            <button
+              type="button"
+              aria-pressed={showMovingAverage}
+              onClick={() => setShowMovingAverage((visible) => !visible)}
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                showMovingAverage
+                  ? 'bg-foreground/10 text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              10-point average
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-muted/30 px-3 py-2.5 sm:max-w-md">
+        <div>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Period high
+          </p>
+          <p className="mt-0.5 font-mono-tabular text-xs font-semibold">
+            {periodHigh ? formatPrice(periodHigh) : '—'}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Period low
+          </p>
+          <p className="mt-0.5 font-mono-tabular text-xs font-semibold">
+            {periodLow ? formatPrice(periodLow) : '—'}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Period change
+          </p>
+          <p
+            className={`mt-0.5 font-mono-tabular text-xs font-semibold ${
+              periodChange >= 0 ? 'text-emerald-500' : 'text-rose-500'
+            }`}
+          >
+            {periodChange > 0 ? '+' : ''}
+            {periodChange.toFixed(2)}%
+          </p>
         </div>
       </div>
 
@@ -204,41 +328,76 @@ export function IndexChart({
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            {view === 'area' ? (
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={color} stopOpacity={0.4} />
-                    <stop offset="95%" stopColor={color} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="hsl(var(--border))"
-                  strokeOpacity={0.3}
-                  vertical={false}
+            <ComposedChart
+              key={`${index.symbol}-${view}`}
+              data={chartData}
+              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={color} stopOpacity={0.6} />
+                  <stop offset="95%" stopColor={color} stopOpacity={0.12} />
+                </linearGradient>
+                <linearGradient
+                  id={volumeGradientId}
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop offset="5%" stopColor={color} stopOpacity={0.35} />
+                  <stop offset="95%" stopColor={color} stopOpacity={0.05} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="hsl(var(--border))"
+                strokeOpacity={0.3}
+                vertical={false}
+              />
+              <XAxis
+                dataKey="time"
+                {...axisProps}
+                interval="preserveStartEnd"
+                minTickGap={50}
+              />
+              <YAxis
+                yAxisId="price"
+                {...axisProps}
+                domain={priceDomain}
+                tickFormatter={formatAxisPrice}
+                width={70}
+              />
+              <YAxis
+                yAxisId="volume"
+                orientation="right"
+                hide
+                domain={[0, (max: number) => max * 4]}
+              />
+              <Tooltip
+                content={
+                  <ChartTooltip
+                    formatPrice={formatPrice}
+                    formatCompact={formatCompact}
+                  />
+                }
+              />
+              {showVolume && (
+                <Bar
+                  yAxisId="volume"
+                  dataKey="volume"
+                  fill={`url(#${volumeGradientId})`}
+                  maxBarSize={12}
+                  radius={[2, 2, 0, 0]}
+                  isAnimationActive={animationActive}
+                  animationDuration={650}
+                  animationEasing="ease-out"
                 />
-                <XAxis
-                  dataKey="time"
-                  {...axisProps}
-                  interval="preserveStartEnd"
-                  minTickGap={50}
-                />
-                <YAxis
-                  {...axisProps}
-                  domain={[`dataMin - ${pricePad}`, `dataMax + ${pricePad}`]}
-                  tickFormatter={(v: number) => formatPrice(v)}
-                  width={70}
-                />
-                <Tooltip
-                  content={
-                    <ChartTooltip
-                      formatPrice={formatPrice}
-                      formatCompact={formatCompact}
-                    />
-                  }
-                />
+              )}
+              {view === 'area' ? (
                 <Area
+                  key="area-price"
+                  yAxisId="price"
                   type="monotone"
                   dataKey="price"
                   stroke={color}
@@ -246,103 +405,71 @@ export function IndexChart({
                   fill={`url(#${gradientId})`}
                   dot={false}
                   activeDot={{ r: 4, strokeWidth: 2 }}
+                  isAnimationActive={animationActive}
+                  animationDuration={650}
+                  animationEasing="ease-out"
                 />
-              </AreaChart>
-            ) : view === 'line' ? (
-              <LineChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="hsl(var(--border))"
-                  strokeOpacity={0.3}
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="time"
-                  {...axisProps}
-                  interval="preserveStartEnd"
-                  minTickGap={50}
-                />
-                <YAxis
-                  {...axisProps}
-                  domain={[`dataMin - ${pricePad}`, `dataMax + ${pricePad}`]}
-                  tickFormatter={(v: number) => formatPrice(v)}
-                  width={70}
-                />
-                <Tooltip
-                  content={
-                    <ChartTooltip
-                      formatPrice={formatPrice}
-                      formatCompact={formatCompact}
-                    />
-                  }
-                />
+              ) : view === 'line' ? (
                 <Line
-                  type="monotone"
-                  dataKey="price"
-                  stroke={color}
-                  strokeWidth={2.5}
-                  dot={false}
-                  activeDot={{ r: 4, strokeWidth: 2 }}
-                />
-              </LineChart>
-            ) : (
-              <ComposedChart data={chartData} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id={volumeGradientId} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={color} stopOpacity={0.35} />
-                    <stop offset="95%" stopColor={color} stopOpacity={0.05} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="hsl(var(--border))"
-                  strokeOpacity={0.3}
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="time"
-                  {...axisProps}
-                  interval="preserveStartEnd"
-                  minTickGap={50}
-                />
-                <YAxis
+                  key="line-price"
                   yAxisId="price"
-                  {...axisProps}
-                  domain={[`dataMin - ${pricePad}`, `dataMax + ${pricePad}`]}
-                  tickFormatter={(v: number) => formatPrice(v)}
-                  width={70}
-                />
-                <YAxis
-                  yAxisId="volume"
-                  orientation="right"
-                  hide
-                  domain={[0, (max: number) => max * 4]}
-                />
-                <Tooltip
-                  content={
-                    <ChartTooltip
-                      formatPrice={formatPrice}
-                      formatCompact={formatCompact}
-                    />
-                  }
-                />
-                <Bar
-                  yAxisId="volume"
-                  dataKey="volume"
-                  fill={`url(#${volumeGradientId})`}
-                  radius={[2, 2, 0, 0]}
-                />
-                <Line
-                  yAxisId="price"
-                  type="monotone"
+                  type="linear"
                   dataKey="price"
                   stroke={color}
                   strokeWidth={2}
+                  strokeDasharray="7 4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                   dot={false}
                   activeDot={{ r: 4, strokeWidth: 2 }}
+                  isAnimationActive={animationActive}
+                  animationDuration={650}
+                  animationEasing="ease-out"
                 />
-              </ComposedChart>
-            )}
+              ) : (
+                <Bar
+                  key="bar-price"
+                  yAxisId="price"
+                  dataKey="priceOffset"
+                  name="price"
+                  maxBarSize={12}
+                  radius={[2, 2, 0, 0]}
+                  isAnimationActive={animationActive}
+                  animationDuration={650}
+                  animationEasing="ease-out"
+                >
+                  {chartData.map((point, pointIndex) => (
+                    <Cell
+                      key={`price-bar-${pointIndex}`}
+                      fill={
+                        point.price >= point.previousPrice
+                          ? '#10B981'
+                          : '#EF4444'
+                      }
+                      fillOpacity={0.8}
+                    />
+                  ))}
+                </Bar>
+              )}
+              {showMovingAverage && (
+                <Line
+                  yAxisId="price"
+                  type="monotone"
+                  dataKey={
+                    view === 'candle' ? 'movingAverageOffset' : 'movingAverage'
+                  }
+                  name="10-point average"
+                  stroke="hsl(var(--chart-2))"
+                  strokeWidth={1.5}
+                  strokeDasharray="5 4"
+                  dot={false}
+                  activeDot={{ r: 3 }}
+                  isAnimationActive={animationActive}
+                  animationDuration={650}
+                  animationEasing="ease-out"
+                />
+              )}
+            </ComposedChart>
           </ResponsiveContainer>
         )}
       </div>
@@ -352,7 +479,12 @@ export function IndexChart({
 
 interface ChartTooltipProps {
   active?: boolean;
-  payload?: Array<{ value: number; name: string; dataKey?: string }>;
+  payload?: Array<{
+    value: number;
+    name: string;
+    dataKey?: string;
+    payload?: ChartDataPoint;
+  }>;
   label?: string;
   formatPrice: (n: number) => string;
   formatCompact: (n: number) => string;
@@ -366,12 +498,17 @@ function ChartTooltip({
   formatCompact,
 }: ChartTooltipProps) {
   if (!active || !payload || payload.length === 0) return null;
-  const price = payload.find(
+  const pricePoint = payload.find(
     (p) => p.dataKey === 'price' || p.name === 'price'
-  )?.value;
+  );
+  const price = pricePoint?.payload?.price ?? pricePoint?.value;
   const volume = payload.find(
     (p) => p.dataKey === 'volume' || p.name === 'volume'
   )?.value;
+  const chartPoint = pricePoint?.payload;
+  const change = chartPoint
+    ? chartPoint.price - chartPoint.previousPrice
+    : undefined;
 
   return (
     <div className="glass-card rounded-lg border border-border p-3 shadow-xl">
@@ -383,11 +520,31 @@ function ChartTooltip({
           ₹{formatPrice(price)}
         </p>
       )}
+      {change !== undefined && (
+        <p
+          className={`mt-0.5 font-mono-tabular text-xs ${
+            change >= 0 ? 'text-emerald-500' : 'text-rose-500'
+          }`}
+        >
+          {change >= 0 ? '+' : ''}
+          {formatPrice(change)} since previous point
+        </p>
+      )}
       {volume !== undefined && (
         <p className="mt-0.5 font-mono-tabular text-xs text-muted-foreground">
           Vol: {formatCompact(volume)}
         </p>
       )}
+      {chartPoint &&
+        payload.some(
+          (point) =>
+            point.dataKey === 'movingAverage' ||
+            point.dataKey === 'movingAverageOffset'
+        ) && (
+          <p className="mt-0.5 font-mono-tabular text-xs text-muted-foreground">
+            10-point average: {formatPrice(chartPoint.movingAverage)}
+          </p>
+        )}
     </div>
   );
 }
