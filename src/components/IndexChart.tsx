@@ -35,6 +35,8 @@ interface IndexChartProps {
   dataSource?: 'live' | 'unavailable';
   unavailableProviders: Partial<Record<MarketProvider, boolean>>;
   onProviderUnavailable: (provider: MarketProvider) => void;
+  availableStockSymbol?: string;
+  onSelectStock: (symbol: string) => void;
 }
 
 const TIMEFRAMES: Timeframe[] = ['1D', '1W', '1M', '6M', '1Y', '5Y'];
@@ -60,6 +62,8 @@ export function IndexChart({
   dataSource = 'live',
   unavailableProviders,
   onProviderUnavailable,
+  availableStockSymbol,
+  onSelectStock,
 }: IndexChartProps) {
   const [timeframe, setTimeframe] = useState<Timeframe>('1D');
   const [provider, setProvider] = useState<MarketProvider>('yahoo');
@@ -364,6 +368,10 @@ export function IndexChart({
                   selected === 'twelvedata' ||
                   selected === 'fmp'
                 ) {
+                  if (selected !== 'yahoo' && !isStock) {
+                    if (!availableStockSymbol) return;
+                    onSelectStock(availableStockSymbol);
+                  }
                   setProvider(selected);
                   if (
                     selected !== 'yahoo' &&
@@ -388,20 +396,30 @@ export function IndexChart({
                 <SelectItem
                   value="twelvedata"
                   disabled={
-                    !isStock || isProviderUnavailable('twelvedata')
+                    (!isStock && !availableStockSymbol) ||
+                    unsupportedSymbols[`${index.symbol}:twelvedata`]
                   }
                 >
                   Twelve Data · NSE EOD
-                  {isProviderUnavailable('twelvedata') ? ' · unavailable' : ''}
+                  {unavailableProviders.twelvedata
+                    ? ' · account restricted'
+                    : isProviderUnavailable('twelvedata')
+                      ? ' · unsupported symbol'
+                      : ''}
                 </SelectItem>
                 <SelectItem
                   value="fmp"
                   disabled={
-                    !isStock || isProviderUnavailable('fmp')
+                    (!isStock && !availableStockSymbol) ||
+                    unsupportedSymbols[`${index.symbol}:fmp`]
                   }
                 >
                   Financial Modeling Prep
-                  {isProviderUnavailable('fmp') ? ' · unavailable' : ''}
+                  {unavailableProviders.fmp
+                    ? ' · account restricted'
+                    : isProviderUnavailable('fmp')
+                      ? ' · unsupported symbol'
+                      : ''}
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -438,9 +456,9 @@ export function IndexChart({
 
       {!isStock && (
         <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-          Alternate providers support stock history. Select a stock from your
-          watchlist to switch providers; the chart will move to a supported
-          timeframe automatically.
+          Alternate providers support stock history. Choosing one switches to
+          {availableStockSymbol ? ` ${availableStockSymbol}` : ' a stock'} and
+          a supported timeframe; index charts remain on Yahoo.
         </p>
       )}
       {isStock &&

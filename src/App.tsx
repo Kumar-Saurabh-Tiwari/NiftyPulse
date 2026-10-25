@@ -162,6 +162,8 @@ function App() {
     stocks.find((s) => s.symbol === activeSymbol) ??
     indices[0];
   const activeStock = stocks.find((s) => s.symbol === activeSymbol);
+  const providerFallbackStock =
+    stocks.find((stock) => stock.symbol === 'INFY') ?? stocks[0];
 
   const heroSymbols = useMemo(() => resolveHeroSymbols(pins), [pins]);
   const heroCards = heroSymbols
@@ -279,6 +281,8 @@ function App() {
                   dataSource={source}
                   unavailableProviders={unavailableProviders}
                   onProviderUnavailable={markProviderUnavailable}
+                  availableStockSymbol={providerFallbackStock?.symbol}
+                  onSelectStock={handleOpenStockChart}
                 />
               ) : (
                 <div className="glass-card flex h-[340px] items-center justify-center rounded-2xl text-sm text-muted-foreground">
