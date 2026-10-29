@@ -88,7 +88,8 @@ the upstream finance service could not be reached.
 - GNews supplies the separate India-market headlines panel. The free plan is
   documented as 100 requests/day, up to 10 articles/request, and a 12-hour
   delay; availability and freshness vary by plan. Headlines are cached briefly
-  server-side to avoid repeated requests.
+  server-side to avoid repeated requests. If GNews is temporarily unreachable,
+  the server uses an India-focused Google News RSS feed as a read-only fallback.
 
 The app uses the provider's documented endpoints and returns normalized
 historical points/profile fields. A successful deployment does not by itself

@@ -1,4 +1,4 @@
-import { handleNewsRequest } from '../server/news';
+import { handleNewsRequest } from '../server/news.js';
 
 interface VercelRequest {
   method?: string;

@@ -1,4 +1,4 @@
-import { handleMarketRequest } from '../server/market';
+import { handleMarketRequest } from '../server/market.js';
 
 interface VercelRequest {
   method?: string;
