@@ -12,11 +12,10 @@ import { Watchlist, type WatchlistItem } from '@/components/Watchlist';
 import { SearchModal } from '@/components/SearchModal';
 import { DashboardPlaceholder } from '@/components/DashboardPlaceholder';
 import { MarketNewsPanel } from '@/components/MarketNewsPanel';
-import { CompanyProfileCard } from '@/components/CompanyProfileCard';
 import { useTheme } from '@/hooks/useTheme';
 import { useMarketData, useFormatPrice } from '@/hooks/useMarketData';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import type { IndexData, MarketProvider } from '@/lib/types';
+import type { IndexData } from '@/lib/types';
 import { RefreshCw } from 'lucide-react';
 
 const DEFAULT_PINS: string[] = ['NIFTY 50', 'NIFTY BANK'];
@@ -57,9 +56,6 @@ function App() {
     DEFAULT_WATCHLIST
   );
   const [activeSymbol, setActiveSymbol] = useState<string>('NIFTY 50');
-  const [unavailableProviders, setUnavailableProviders] = useState<
-    Partial<Record<MarketProvider, boolean>>
-  >({});
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const chartSectionRef = useRef<HTMLDivElement>(null);
@@ -143,10 +139,6 @@ function App() {
     );
   }, []);
 
-  const markProviderUnavailable = useCallback((provider: MarketProvider) => {
-    setUnavailableProviders((current) => ({ ...current, [provider]: true }));
-  }, []);
-
   const handleSelectIndex = useCallback((symbol: string) => {
     setActiveSymbol(symbol);
     window.requestAnimationFrame(() =>
@@ -161,9 +153,6 @@ function App() {
     indices.find((i) => i.symbol === activeSymbol) ??
     stocks.find((s) => s.symbol === activeSymbol) ??
     indices[0];
-  const activeStock = stocks.find((s) => s.symbol === activeSymbol);
-  const providerFallbackStock =
-    stocks.find((stock) => stock.symbol === 'INFY') ?? stocks[0];
 
   const heroSymbols = useMemo(() => resolveHeroSymbols(pins), [pins]);
   const heroCards = heroSymbols
@@ -279,10 +268,6 @@ function App() {
                   index={activeInstrument}
                   tick={lastTick[activeInstrument.symbol]}
                   dataSource={source}
-                  unavailableProviders={unavailableProviders}
-                  onProviderUnavailable={markProviderUnavailable}
-                  availableStockSymbol={providerFallbackStock?.symbol}
-                  onSelectStock={handleOpenStockChart}
                 />
               ) : (
                 <div className="glass-card flex h-[340px] items-center justify-center rounded-2xl text-sm text-muted-foreground">
@@ -292,12 +277,6 @@ function App() {
             </div>
             <div className="space-y-4">
               <MarketNewsPanel />
-              {activeStock && (
-                <CompanyProfileCard
-                  symbol={activeStock.symbol}
-                  onProviderUnavailable={markProviderUnavailable}
-                />
-              )}
             </div>
           </div>
 

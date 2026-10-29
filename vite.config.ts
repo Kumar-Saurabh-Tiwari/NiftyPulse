@@ -6,7 +6,6 @@ import {
   type Plugin,
   type ViteDevServer,
 } from 'vite';
-import { handleMarketRequest } from './server/market';
 import { handleNewsRequest } from './server/news';
 
 function localApiRoutes(
@@ -15,15 +14,12 @@ function localApiRoutes(
 ): void {
   server.middlewares.use((request, response, next) => {
     const url = new URL(request.url ?? '/', 'http://localhost');
-    if (url.pathname !== '/api/market' && url.pathname !== '/api/news') {
+    if (url.pathname !== '/api/news') {
       next();
       return;
     }
 
-    const result =
-      url.pathname === '/api/market'
-        ? handleMarketRequest(url, request.method, env)
-        : handleNewsRequest(request.method, env);
+    const result = handleNewsRequest(request.method, env);
 
     void result.then(
       (apiResult) => {
