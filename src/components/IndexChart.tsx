@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { LoaderCircle } from 'lucide-react';
 import {
   Area,
   Line,
@@ -144,10 +143,9 @@ export function IndexChart({
     });
   }, [history, priceBounds]);
 
-  const { pricePad, periodHigh, periodLow, periodChange } = useMemo(() => {
+  const { periodHigh, periodLow, periodChange } = useMemo(() => {
     if (!chartData.length) {
       return {
-        pricePad: 50,
         periodHigh: 0,
         periodLow: 0,
         periodChange: 0,
@@ -160,7 +158,6 @@ export function IndexChart({
     const lastPrice = chartData[chartData.length - 1].price;
 
     return {
-      pricePad: Math.max((max - min) * 0.05, max * 0.001, 1),
       periodHigh: max,
       periodLow: min,
       periodChange:
@@ -170,16 +167,13 @@ export function IndexChart({
 
   const gradientId = `gradient-${index.symbol.replace(/\s/g, '')}`;
   const volumeGradientId = `vol-${index.symbol.replace(/\s/g, '')}`;
+  const animationActive = !prefersReducedMotion;
   const priceDomain: [number | string, number | string] =
     view === 'candle'
-      ? [0, periodHigh - periodLow + pricePad * 2]
-      : [`dataMin - ${pricePad}`, `dataMax + ${pricePad}`];
+      ? [0, periodHigh - periodLow + Math.max((periodHigh - periodLow) * 0.05, 1) * 2]
+      : [`dataMin - ${Math.max((periodHigh - periodLow) * 0.05, periodHigh * 0.001, 1)}`, `dataMax + ${Math.max((periodHigh - periodLow) * 0.05, periodHigh * 0.001, 1)}`];
   const formatAxisPrice = (value: number) =>
-    formatPrice(
-      view === 'candle' ? value + periodLow - pricePad : value
-    );
-  const animationActive = !prefersReducedMotion;
-
+    formatPrice(view === 'candle' ? value + periodLow : value);
   const axisProps = {
     tick: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' },
     tickLine: false as const,
@@ -414,25 +408,9 @@ export function IndexChart({
                 strokeOpacity={0.3}
                 vertical={false}
               />
-              <XAxis
-                dataKey="time"
-                {...axisProps}
-                interval="preserveStartEnd"
-                minTickGap={50}
-              />
-              <YAxis
-                yAxisId="price"
-                {...axisProps}
-                domain={priceDomain}
-                tickFormatter={formatAxisPrice}
-                width={70}
-              />
-              <YAxis
-                yAxisId="volume"
-                orientation="right"
-                hide
-                domain={[0, (max: number) => max * 4]}
-              />
+              <XAxis dataKey="time" {...axisProps} interval="preserveStartEnd" minTickGap={50} />
+              <YAxis yAxisId="price" {...axisProps} domain={priceDomain} tickFormatter={formatAxisPrice} width={70} />
+              <YAxis yAxisId="volume" orientation="right" hide domain={[0, (max: number) => max * 4]} />
               <Tooltip
                 content={
                   <ChartTooltip

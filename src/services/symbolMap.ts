@@ -36,7 +36,6 @@ export const STOCK_SYMBOLS: Record<string, SymbolMeta> = {
   SUNPHARMA: { yahoo: 'SUNPHARMA.NS', name: 'Sun Pharmaceutical', sector: 'Pharma', marketCapCr: 431000 },
   WIPRO: { yahoo: 'WIPRO.NS', name: 'Wipro Limited', sector: 'IT', marketCapCr: 311000 },
   AXISBANK: { yahoo: 'AXISBANK.NS', name: 'Axis Bank', sector: 'Banking', marketCapCr: 354000 },
-  TATAMOTORS: { yahoo: 'TATAMOTORS.NS', name: 'Tata Motors', sector: 'Auto', marketCapCr: 363000 },
   BAJFINANCE: { yahoo: 'BAJFINANCE.NS', name: 'Bajaj Finance', sector: 'Finance', marketCapCr: 452000 },
   ADANIENT: { yahoo: 'ADANIENT.NS', name: 'Adani Enterprises', sector: 'Conglomerate', marketCapCr: 327000 },
   POWERGRID: { yahoo: 'POWERGRID.NS', name: 'Power Grid Corporation', sector: 'Power', marketCapCr: 302000 },

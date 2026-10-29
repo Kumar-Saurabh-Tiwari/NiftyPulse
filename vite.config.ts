@@ -7,6 +7,7 @@ import {
   type ViteDevServer,
 } from 'vite';
 import { handleNewsRequest } from './server/news';
+import { handleMutualFundRequest } from './server/mutualFund';
 
 function localApiRoutes(
   server: Pick<ViteDevServer, 'middlewares'>,
@@ -15,6 +16,19 @@ function localApiRoutes(
   server.middlewares.use((request, response, next) => {
     const url = new URL(request.url ?? '/', 'http://localhost');
     if (url.pathname !== '/api/news') {
+      if (url.pathname === '/api/mf') {
+        const result = handleMutualFundRequest(request.method, url.searchParams);
+        void result.then(
+          (apiResult) => {
+            response.statusCode = apiResult.status;
+            response.setHeader('Content-Type', 'application/json; charset=utf-8');
+            response.setHeader('Cache-Control', apiResult.cacheControl);
+            response.end(JSON.stringify(apiResult.body));
+          },
+          next
+        );
+        return;
+      }
       next();
       return;
     }

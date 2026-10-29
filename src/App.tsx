@@ -12,6 +12,8 @@ import { Watchlist, type WatchlistItem } from '@/components/Watchlist';
 import { SearchModal } from '@/components/SearchModal';
 import { DashboardPlaceholder } from '@/components/DashboardPlaceholder';
 import { MarketNewsPanel } from '@/components/MarketNewsPanel';
+import { TradeIdeas, type TradeIdea } from '@/components/TradeIdeas';
+import { FundDetails } from '@/components/FundDetails';
 import { useTheme } from '@/hooks/useTheme';
 import { useMarketData, useFormatPrice } from '@/hooks/useMarketData';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -58,6 +60,7 @@ function App() {
   const [activeSymbol, setActiveSymbol] = useState<string>('NIFTY 50');
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFund, setSelectedFund] = useState<TradeIdea | null>(null);
   const chartSectionRef = useRef<HTMLDivElement>(null);
   const watchlistSectionRef = useRef<HTMLDivElement>(null);
 
@@ -186,6 +189,12 @@ function App() {
           theme={theme}
           onToggleTheme={toggleTheme}
           onOpenSearch={() => setSearchOpen(true)}
+          onOpenFunds={() => {
+            setSelectedFund(null);
+            window.requestAnimationFrame(() =>
+              document.getElementById('your-funds')?.scrollIntoView({ behavior: 'smooth' })
+            );
+          }}
         />
         <TickerTape indices={indices} lastTick={lastTick} />
 
@@ -305,6 +314,10 @@ function App() {
             <SectoralHeatmap sectors={sectors} />
           </div>
 
+          <div id="your-funds" className="mt-6 scroll-mt-24">
+            <TradeIdeas onSelectFund={setSelectedFund} />
+          </div>
+
           <div className="mt-6">
             <h2 className="mb-3 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
               All Indices
@@ -339,6 +352,9 @@ function App() {
             </p>
           </footer>
         </main>
+        {selectedFund && (
+          <FundDetails fund={selectedFund} onBack={() => setSelectedFund(null)} />
+        )}
       </div>
 
       <SearchModal

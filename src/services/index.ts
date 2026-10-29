@@ -1,6 +1,7 @@
 export {
   fetchMarketSnapshot,
   fetchSymbolHistory,
+  fetchMutualFundHistory,
   INDEX_SYMBOLS,
   STOCK_SYMBOLS,
   type MarketSnapshot,

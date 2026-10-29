@@ -28,6 +28,12 @@ export interface MarketSnapshot {
   updatedAt: number;
 }
 
+export interface MutualFundHistory {
+  schemeCode: number;
+  schemeName: string;
+  history: PricePoint[];
+}
+
 function round2(n: number): number {
   return Number(n.toFixed(2));
 }
@@ -288,6 +294,38 @@ export async function fetchSymbolHistory(
     return history.map((p) => ({ ...p, price: round2(p.price * 1.0025) }));
   }
   return history;
+}
+
+/** Fetch historical NAV data for a direct-growth mutual fund from MFAPI. */
+export async function fetchMutualFundHistory(
+  schemeCode: number,
+  signal?: AbortSignal
+): Promise<MutualFundHistory> {
+  const response = await fetch(`/api/mf?schemeCode=${schemeCode}`, {
+    signal,
+    headers: { Accept: 'application/json' },
+  });
+  if (!response.ok) {
+    throw new Error(`Mutual fund data request failed (${response.status})`);
+  }
+  const data = (await response.json()) as {
+    meta?: { scheme_code?: number; scheme_name?: string };
+    data?: { date: string; nav: string }[];
+  };
+  const history = (data.data ?? [])
+    .map((point) => ({
+      time: new Date(`${point.date.split('-').reverse().join('-')}T00:00:00+05:30`).toISOString(),
+      price: Number(point.nav),
+      volume: 0,
+    }))
+    .filter((point) => Number.isFinite(point.price))
+    .reverse();
+  if (!history.length) throw new Error('No mutual fund NAV history returned');
+  return {
+    schemeCode,
+    schemeName: data.meta?.scheme_name ?? '',
+    history,
+  };
 }
 
 export { INDEX_SYMBOLS, STOCK_SYMBOLS };

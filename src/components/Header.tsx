@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, Moon, Sun, Search } from 'lucide-react';
+import { Activity, Moon, Sun, Search, BriefcaseBusiness } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { Theme } from '@/lib/types';
@@ -8,9 +8,10 @@ interface HeaderProps {
   theme: Theme;
   onToggleTheme: () => void;
   onOpenSearch: () => void;
+  onOpenFunds: () => void;
 }
 
-export function Header({ theme, onToggleTheme, onOpenSearch }: HeaderProps) {
+export function Header({ theme, onToggleTheme, onOpenSearch, onOpenFunds }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 w-full">
       <div className="glass-card border-b border-t-0 border-x-0">
@@ -41,6 +42,15 @@ export function Header({ theme, onToggleTheme, onOpenSearch }: HeaderProps) {
 
           {/* Right Actions */}
           <div className="flex items-center gap-2 md:gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onOpenFunds}
+              className="gap-1.5 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground sm:px-3 sm:text-sm"
+            >
+              <BriefcaseBusiness className="h-4 w-4 text-emerald-500" />
+              <span>Your Funds</span>
+            </Button>
             <Button
               variant="outline"
               size="sm"
