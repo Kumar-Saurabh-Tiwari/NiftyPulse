@@ -195,6 +195,12 @@ function App() {
           theme={theme}
           onToggleTheme={toggleTheme}
           onOpenSearch={() => setSearchOpen(true)}
+          onOpenFunds={() =>
+            document.getElementById('your-funds')?.scrollIntoView({
+              behavior: reducedMotion ? 'auto' : 'smooth',
+              block: 'start',
+            })
+          }
           fundPins={fundPins}
           autoRefresh={autoRefresh}
           onToggleAutoRefresh={() => setAutoRefresh((enabled) => !enabled)}

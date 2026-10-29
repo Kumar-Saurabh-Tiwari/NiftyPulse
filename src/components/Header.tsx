@@ -22,6 +22,7 @@ interface HeaderProps {
   theme: Theme;
   onToggleTheme: () => void;
   onOpenSearch: () => void;
+  onOpenFunds: () => void;
   fundPins: number[];
   autoRefresh: boolean;
   onToggleAutoRefresh: () => void;
@@ -35,6 +36,7 @@ export function Header({
   theme,
   onToggleTheme,
   onOpenSearch,
+  onOpenFunds,
   fundPins,
   autoRefresh,
   onToggleAutoRefresh,
@@ -43,7 +45,6 @@ export function Header({
   reducedMotion,
   onToggleReducedMotion,
 }: HeaderProps) {
-  const [fundsOpen, setFundsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
@@ -79,10 +80,7 @@ export function Header({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                setFundsOpen((open) => !open);
-                setSettingsOpen(false);
-              }}
+              onClick={onOpenFunds}
               className="gap-1.5 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground sm:px-3 sm:text-sm"
             >
               <BriefcaseBusiness className="h-4 w-4 text-emerald-500" />
@@ -123,7 +121,6 @@ export function Header({
               aria-expanded={settingsOpen}
               onClick={() => {
                 setSettingsOpen((open) => !open);
-                setFundsOpen(false);
               }}
               className={`glass-card flex h-9 w-9 items-center justify-center rounded-lg transition ${
                 settingsOpen ? 'text-emerald-500 ring-1 ring-emerald-500/30' : 'text-muted-foreground hover:text-foreground'
@@ -167,32 +164,6 @@ export function Header({
           </div>
         </div>
       </div>
-      <AnimatePresence>
-        {fundsOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="absolute left-0 right-0 top-full border-b border-border/60 bg-background/95 shadow-xl backdrop-blur-2xl"
-          >
-            <div className="mx-auto max-w-[1600px] px-4 py-3 md:px-6">
-              <div className="mb-2 flex items-center justify-between">
-                <div>
-                <p className="font-display text-sm font-bold">Your pinned funds</p>
-                <p className="text-[10px] text-muted-foreground">Live NAV cards · click any card for details</p>
-                </div>
-                <button type="button" aria-label="Close funds panel" onClick={() => setFundsOpen(false)} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
-                <X className="h-4 w-4" />
-                </button>
-              </div>
-              <p className="rounded-xl border border-border/60 bg-muted/30 px-3 py-4 text-xs text-muted-foreground">
-                Your pinned fund cards are shown below the market ticker.
-              </p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <AnimatePresence>
         {settingsOpen && (
           <>
