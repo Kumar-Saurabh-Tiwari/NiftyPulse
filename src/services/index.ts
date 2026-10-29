@@ -2,6 +2,7 @@ export {
   fetchMarketSnapshot,
   fetchSymbolHistory,
   fetchMutualFundHistory,
+  searchMutualFunds,
   INDEX_SYMBOLS,
   STOCK_SYMBOLS,
   type MarketSnapshot,

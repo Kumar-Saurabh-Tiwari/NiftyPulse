@@ -260,14 +260,16 @@ export function FundPinnedRail({
   pinnedCodes,
   onSelectFund,
   onTogglePin,
+  funds = TRADE_IDEAS,
 }: {
   pinnedCodes: number[];
   onSelectFund: (fund: TradeIdea) => void;
   onTogglePin: (schemeCode: number) => void;
+  funds?: TradeIdea[];
 }) {
   const railRef = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(false);
-  const pinnedFunds = TRADE_IDEAS.filter((fund) => pinnedCodes.includes(fund.schemeCode));
+  const pinnedFunds = funds.filter((fund) => pinnedCodes.includes(fund.schemeCode));
   const [liveData, setLiveData] = useState<Record<number, { nav: number; change: number }>>({});
 
   useEffect(() => {

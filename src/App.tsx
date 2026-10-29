@@ -61,6 +61,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFund, setSelectedFund] = useState<TradeIdea | null>(null);
   const [fundPins, setFundPins] = useLocalStorage<number[]>('niftypulse-fund-pins', []);
+  const [customFunds, setCustomFunds] = useLocalStorage<TradeIdea[]>('niftypulse-custom-funds', []);
   const [compactMode, setCompactMode] = useLocalStorage('niftypulse-compact-mode', false);
   const [reducedMotion, setReducedMotion] = useLocalStorage('niftypulse-reduced-motion', false);
   const chartSectionRef = useRef<HTMLDivElement>(null);
@@ -213,6 +214,7 @@ function App() {
         <FundPinnedRail
           pinnedCodes={fundPins}
           onSelectFund={setSelectedFund}
+          funds={[...TRADE_IDEAS, ...customFunds.filter((fund) => !TRADE_IDEAS.some((item) => item.schemeCode === fund.schemeCode))]}
           onTogglePin={(code) =>
             setFundPins((current) =>
               current.includes(code) ? current.filter((item) => item !== code) : [...current, code]
@@ -346,8 +348,21 @@ function App() {
         stocks={stocks}
         onSelectIndex={handleSelectIndex}
         onSelectStock={handleSelectStock}
-        funds={TRADE_IDEAS}
+        funds={[...TRADE_IDEAS, ...customFunds.filter((fund) => !TRADE_IDEAS.some((item) => item.schemeCode === fund.schemeCode))]}
         onSelectFund={setSelectedFund}
+        pinnedCodes={fundPins}
+        onToggleFundPin={(fund) => {
+          setCustomFunds((current) =>
+            current.some((item) => item.schemeCode === fund.schemeCode)
+              ? current
+              : [...current, fund]
+          );
+          setFundPins((current) =>
+            current.includes(fund.schemeCode)
+              ? current.filter((code) => code !== fund.schemeCode)
+              : [...current, fund.schemeCode]
+          );
+        }}
       />
     </div>
   );

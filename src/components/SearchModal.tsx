@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ArrowRight } from 'lucide-react';
+import { Search, ArrowRight, Pin, Check, LoaderCircle } from 'lucide-react';
 import type { IndexData, StockData } from '@/lib/types';
 import { useFormatPrice } from '@/hooks/useMarketData';
 import type { TradeIdea } from '@/components/TradeIdeas';
+import { searchMutualFunds } from '@/services/marketDataService';
 
 interface SearchModalProps {
   open: boolean;
@@ -14,6 +15,8 @@ interface SearchModalProps {
   onSelectStock: (symbol: string) => void;
   funds: TradeIdea[];
   onSelectFund: (fund: TradeIdea) => void;
+  pinnedCodes: number[];
+  onToggleFundPin: (fund: TradeIdea) => void;
 }
 
 type ResultItem = {
@@ -34,12 +37,17 @@ export function SearchModal({
   onSelectStock,
   funds,
   onSelectFund,
+  pinnedCodes,
+  onToggleFundPin,
 }: SearchModalProps) {
   const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const { formatPrice } = useFormatPrice();
+  const [globalFunds, setGlobalFunds] = useState<TradeIdea[]>([]);
+  const [fundSearchLoading, setFundSearchLoading] = useState(false);
+  const [fundSearchError, setFundSearchError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -53,6 +61,40 @@ export function SearchModal({
       document.body.style.overflow = prev;
     };
   }, [open]);
+
+  useEffect(() => {
+    const search = query.trim();
+    if (!open || search.length < 2) {
+      setGlobalFunds([]);
+      setFundSearchLoading(false);
+      setFundSearchError(null);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setFundSearchLoading(true);
+      searchMutualFunds(search, controller.signal)
+        .then((results) => {
+          setGlobalFunds(results.map((result) => ({
+            name: result.schemeName,
+            category: result.schemeName.toLowerCase().includes('debt') ? 'Hybrid' : 'Equity',
+            style: result.schemeName.toLowerCase().includes('index') ? 'Index' : 'Mutual fund',
+            schemeCode: result.schemeCode,
+          })));
+          setFundSearchError(null);
+        })
+        .catch((reason: unknown) => {
+          if (!(reason instanceof Error && reason.name === 'AbortError')) {
+            setFundSearchError('Fund search is temporarily unavailable');
+          }
+        })
+        .finally(() => setFundSearchLoading(false));
+    }, 280);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [open, query]);
 
   const flatResults: ResultItem[] = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -70,9 +112,13 @@ export function SearchModal({
             s.name.toLowerCase().includes(q)
         )
       : stocks.slice(0, 5);
-    const fundList = q
+    const localFundList = q
       ? funds.filter((fund) => fund.name.toLowerCase().includes(q) || fund.style.toLowerCase().includes(q))
       : funds;
+    const fundList = [
+      ...localFundList,
+      ...globalFunds.filter((fund) => !localFundList.some((item) => item.schemeCode === fund.schemeCode)),
+    ];
 
     return [
       ...idxList.map((i) => ({
@@ -98,7 +144,7 @@ export function SearchModal({
         fund,
       })),
     ];
-  }, [indices, stocks, funds, query]);
+  }, [indices, stocks, funds, globalFunds, query]);
 
   const indexResults = flatResults.filter((r) => r.type === 'index');
   const stockResults = flatResults.filter((r) => r.type === 'stock');
@@ -204,7 +250,27 @@ export function SearchModal({
               {item.type === 'fund' ? `${item.fund?.style ?? 'Mutual fund'} · Direct Growth` : `${isUp ? '+' : ''}${item.changePercent.toFixed(2)}%`}
             </p>
           </div>
-          <ArrowRight className="h-4 w-4 text-muted-foreground/30 transition-colors group-hover:text-foreground" />
+          {item.type === 'fund' ? (
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label={pinnedCodes.includes(item.fund!.schemeCode) ? `Unpin ${item.name}` : `Pin ${item.name}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (item.fund) onToggleFundPin(item.fund);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  if (item.fund) onToggleFundPin(item.fund);
+                }
+              }}
+              className={`rounded-md p-1.5 transition ${pinnedCodes.includes(item.fund!.schemeCode) ? 'text-emerald-500' : 'text-muted-foreground/40 hover:text-emerald-500'}`}
+            >
+              {pinnedCodes.includes(item.fund!.schemeCode) ? <Check className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+            </span>
+          ) : <ArrowRight className="h-4 w-4 text-muted-foreground/30 transition-colors group-hover:text-foreground" />}
         </div>
       </button>
     );
@@ -258,6 +324,8 @@ export function SearchModal({
             >
               {flatResults.length === 0 ? (
                 <div className="py-12 text-center">
+                  {fundSearchLoading && <LoaderCircle className="mx-auto mb-2 h-4 w-4 animate-spin text-emerald-500" />}
+                  {fundSearchError && <p className="mb-2 text-[10px] text-rose-500">{fundSearchError}</p>}
                   <p className="text-sm text-muted-foreground">
                     {query.trim()
                       ? `No results for "${query}"`
@@ -280,12 +348,6 @@ export function SearchModal({
                           )
                         )
                       )}
-                      {fundResults.length > 0 && (
-                        <div className="p-2">
-                          <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Your funds</p>
-                          {fundResults.map((item) => renderRow(item, flatResults.findIndex((r) => r.symbol === item.symbol && r.type === item.type)))}
-                        </div>
-                      )}
                     </div>
                   )}
                   {stockResults.length > 0 && (
@@ -301,6 +363,12 @@ export function SearchModal({
                               r.symbol === item.symbol && r.type === item.type
                           )
                         )
+                      )}
+                      {fundResults.length > 0 && (
+                        <div className="p-2">
+                          <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Mutual funds</p>
+                          {fundResults.map((item) => renderRow(item, flatResults.findIndex((r) => r.symbol === item.symbol && r.type === item.type)))}
+                        </div>
                       )}
                     </div>
                   )}

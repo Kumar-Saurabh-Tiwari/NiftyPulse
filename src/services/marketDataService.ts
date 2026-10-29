@@ -34,6 +34,30 @@ export interface MutualFundHistory {
   history: PricePoint[];
 }
 
+export interface MutualFundSearchResult {
+  schemeCode: number;
+  schemeName: string;
+}
+
+export async function searchMutualFunds(
+  query: string,
+  signal?: AbortSignal
+): Promise<MutualFundSearchResult[]> {
+  const response = await fetch(`/api/mf?search=${encodeURIComponent(query.trim())}`, {
+    signal,
+    headers: { Accept: 'application/json' },
+  });
+  if (!response.ok) throw new Error(`Mutual fund search failed (${response.status})`);
+  const body: unknown = await response.json();
+  if (!Array.isArray(body)) throw new Error('Mutual fund search returned an invalid response');
+  return body.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const schemeCode = Number(item.schemeCode);
+    const schemeName = typeof item.schemeName === 'string' ? item.schemeName : '';
+    return Number.isInteger(schemeCode) && schemeName ? [{ schemeCode, schemeName }] : [];
+  });
+}
+
 function round2(n: number): number {
   return Number(n.toFixed(2));
 }
