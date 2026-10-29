@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ArrowRight } from 'lucide-react';
 import type { IndexData, StockData } from '@/lib/types';
 import { useFormatPrice } from '@/hooks/useMarketData';
+import type { TradeIdea } from '@/components/TradeIdeas';
 
 interface SearchModalProps {
   open: boolean;
@@ -11,14 +12,17 @@ interface SearchModalProps {
   stocks: StockData[];
   onSelectIndex: (symbol: string) => void;
   onSelectStock: (symbol: string) => void;
+  funds: TradeIdea[];
+  onSelectFund: (fund: TradeIdea) => void;
 }
 
 type ResultItem = {
   symbol: string;
   name: string;
-  type: 'index' | 'stock';
+  type: 'index' | 'stock' | 'fund';
   price: number;
   changePercent: number;
+  fund?: TradeIdea;
 };
 
 export function SearchModal({
@@ -28,6 +32,8 @@ export function SearchModal({
   stocks,
   onSelectIndex,
   onSelectStock,
+  funds,
+  onSelectFund,
 }: SearchModalProps) {
   const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(0);
@@ -64,6 +70,9 @@ export function SearchModal({
             s.name.toLowerCase().includes(q)
         )
       : stocks.slice(0, 5);
+    const fundList = q
+      ? funds.filter((fund) => fund.name.toLowerCase().includes(q) || fund.style.toLowerCase().includes(q))
+      : funds;
 
     return [
       ...idxList.map((i) => ({
@@ -80,23 +89,36 @@ export function SearchModal({
         price: s.price,
         changePercent: s.changePercent,
       })),
+      ...fundList.map((fund) => ({
+        symbol: `FUND-${fund.schemeCode}`,
+        name: fund.name,
+        type: 'fund' as const,
+        price: 0,
+        changePercent: 0,
+        fund,
+      })),
     ];
-  }, [indices, stocks, query]);
+  }, [indices, stocks, funds, query]);
 
   const indexResults = flatResults.filter((r) => r.type === 'index');
   const stockResults = flatResults.filter((r) => r.type === 'stock');
+  const fundResults = flatResults.filter((r) => r.type === 'fund');
 
   useEffect(() => {
     setActiveIdx(0);
   }, [query]);
 
   const handleSelect = useCallback(
-    (symbol: string, type: 'index' | 'stock') => {
+    (symbol: string, type: 'index' | 'stock' | 'fund') => {
       if (type === 'index') onSelectIndex(symbol);
-      else onSelectStock(symbol);
+      else if (type === 'stock') onSelectStock(symbol);
+      else {
+        const fund = flatResults.find((item) => item.symbol === symbol)?.fund;
+        if (fund) onSelectFund(fund);
+      }
       onClose();
     },
-    [onClose, onSelectIndex, onSelectStock]
+    [flatResults, onClose, onSelectFund, onSelectIndex, onSelectStock]
   );
 
   useEffect(() => {
@@ -153,15 +175,15 @@ export function SearchModal({
         <div className="flex min-w-0 items-center gap-3">
           <div
             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-              item.type === 'index' ? 'bg-emerald-500/10' : 'bg-muted'
+              item.type === 'index' ? 'bg-emerald-500/10' : item.type === 'fund' ? 'bg-emerald-500/10' : 'bg-muted'
             }`}
           >
             <span
               className={`text-[10px] font-bold ${
-                item.type === 'index' ? 'text-emerald-500' : ''
+                item.type === 'index' || item.type === 'fund' ? 'text-emerald-500' : ''
               }`}
             >
-              {item.symbol.slice(0, 2)}
+              {item.type === 'fund' ? 'MF' : item.symbol.slice(0, 2)}
             </span>
           </div>
           <div className="min-w-0">
@@ -173,16 +195,13 @@ export function SearchModal({
         </div>
         <div className="flex shrink-0 items-center gap-3">
           <div className="text-right">
-            <p className="font-mono-tabular text-sm font-semibold">
-              {formatPrice(item.price)}
-            </p>
+            {item.type !== 'fund' && <p className="font-mono-tabular text-sm font-semibold">{formatPrice(item.price)}</p>}
             <p
               className={`font-mono-tabular text-[10px] font-bold ${
                 isUp ? 'text-emerald-500' : 'text-rose-500'
               }`}
             >
-              {isUp ? '+' : ''}
-              {item.changePercent.toFixed(2)}%
+              {item.type === 'fund' ? `${item.fund?.style ?? 'Mutual fund'} · Direct Growth` : `${isUp ? '+' : ''}${item.changePercent.toFixed(2)}%`}
             </p>
           </div>
           <ArrowRight className="h-4 w-4 text-muted-foreground/30 transition-colors group-hover:text-foreground" />
@@ -260,6 +279,12 @@ export function SearchModal({
                               r.symbol === item.symbol && r.type === item.type
                           )
                         )
+                      )}
+                      {fundResults.length > 0 && (
+                        <div className="p-2">
+                          <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Your funds</p>
+                          {fundResults.map((item) => renderRow(item, flatResults.findIndex((r) => r.symbol === item.symbol && r.type === item.type)))}
+                        </div>
                       )}
                     </div>
                   )}

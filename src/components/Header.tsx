@@ -1,5 +1,19 @@
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, Moon, Sun, Search, BriefcaseBusiness } from 'lucide-react';
+import {
+  Activity,
+  Moon,
+  Sun,
+  Search,
+  BriefcaseBusiness,
+  Settings2,
+  X,
+  Layout,
+  Zap,
+  Bell,
+  UserRound,
+  SlidersHorizontal,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { Theme } from '@/lib/types';
@@ -8,10 +22,30 @@ interface HeaderProps {
   theme: Theme;
   onToggleTheme: () => void;
   onOpenSearch: () => void;
-  onOpenFunds: () => void;
+  fundPins: number[];
+  autoRefresh: boolean;
+  onToggleAutoRefresh: () => void;
+  compactMode: boolean;
+  onToggleCompactMode: () => void;
+  reducedMotion: boolean;
+  onToggleReducedMotion: () => void;
 }
 
-export function Header({ theme, onToggleTheme, onOpenSearch, onOpenFunds }: HeaderProps) {
+export function Header({
+  theme,
+  onToggleTheme,
+  onOpenSearch,
+  fundPins,
+  autoRefresh,
+  onToggleAutoRefresh,
+  compactMode,
+  onToggleCompactMode,
+  reducedMotion,
+  onToggleReducedMotion,
+}: HeaderProps) {
+  const [fundsOpen, setFundsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-40 w-full">
       <div className="glass-card border-b border-t-0 border-x-0">
@@ -45,11 +79,19 @@ export function Header({ theme, onToggleTheme, onOpenSearch, onOpenFunds }: Head
             <Button
               variant="ghost"
               size="sm"
-              onClick={onOpenFunds}
+              onClick={() => {
+                setFundsOpen((open) => !open);
+                setSettingsOpen(false);
+              }}
               className="gap-1.5 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground sm:px-3 sm:text-sm"
             >
               <BriefcaseBusiness className="h-4 w-4 text-emerald-500" />
               <span>Your Funds</span>
+              {fundPins.length > 0 && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-[9px] text-white">
+                  {fundPins.length}
+                </span>
+              )}
             </Button>
             <Button
               variant="outline"
@@ -74,6 +116,21 @@ export function Header({ theme, onToggleTheme, onOpenSearch, onOpenFunds }: Head
               </span>
               LIVE
             </Badge>
+
+            <button
+              type="button"
+              aria-label="Open personalization settings"
+              aria-expanded={settingsOpen}
+              onClick={() => {
+                setSettingsOpen((open) => !open);
+                setFundsOpen(false);
+              }}
+              className={`glass-card flex h-9 w-9 items-center justify-center rounded-lg transition ${
+                settingsOpen ? 'text-emerald-500 ring-1 ring-emerald-500/30' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Settings2 className="h-4 w-4" />
+            </button>
 
             {/* Theme Toggle */}
             <motion.button
@@ -110,6 +167,151 @@ export function Header({ theme, onToggleTheme, onOpenSearch, onOpenFunds }: Head
           </div>
         </div>
       </div>
+      <AnimatePresence>
+        {fundsOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="absolute left-0 right-0 top-full border-b border-border/60 bg-background/95 shadow-xl backdrop-blur-2xl"
+          >
+            <div className="mx-auto max-w-[1600px] px-4 py-3 md:px-6">
+              <div className="mb-2 flex items-center justify-between">
+                <div>
+                <p className="font-display text-sm font-bold">Your pinned funds</p>
+                <p className="text-[10px] text-muted-foreground">Live NAV cards · click any card for details</p>
+                </div>
+                <button type="button" aria-label="Close funds panel" onClick={() => setFundsOpen(false)} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
+                <X className="h-4 w-4" />
+                </button>
+              </div>
+              <p className="rounded-xl border border-border/60 bg-muted/30 px-3 py-4 text-xs text-muted-foreground">
+                Your pinned fund cards are shown below the market ticker.
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {settingsOpen && (
+          <>
+            <motion.button
+              type="button"
+              aria-label="Close personalization settings"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSettingsOpen(false)}
+              className="fixed inset-0 z-40 cursor-default bg-slate-950/30 backdrop-blur-[2px]"
+            />
+            <motion.aside
+              initial={{ x: '100%', opacity: 0.7 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: '100%', opacity: 0.7 }}
+              transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+              aria-label="Personalization settings"
+              className="liquid-glass-drawer fixed right-0 top-0 z-50 flex h-dvh w-full max-w-md transform-gpu flex-col overflow-hidden will-change-transform"
+            >
+              <div className="liquid-glass-orb liquid-glass-orb-one" />
+              <div className="liquid-glass-orb liquid-glass-orb-two" />
+              <div className="relative z-10 flex items-center justify-between border-b border-white/30 px-5 py-4 dark:border-white/10">
+                <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
+                  <SlidersHorizontal className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="font-display text-base font-bold">Personalize NiftyPulse</p>
+                  <p className="text-[10px] text-muted-foreground">Your preferences are saved on this device.</p>
+                </div>
+                </div>
+                <button type="button" aria-label="Close settings" onClick={() => setSettingsOpen(false)} className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground">
+                <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="relative z-10 flex-1 space-y-5 overflow-y-auto p-5">
+                <section className="space-y-2">
+                <p className="px-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Account</p>
+                <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/30 p-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-sky-500 text-white">
+                    <UserRound className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold">Guest profile</p>
+                    <p className="text-[10px] text-muted-foreground">Sign in to sync your preferences</p>
+                  </div>
+                  <Badge variant="outline" className="text-[9px]">Soon</Badge>
+                </div>
+                </section>
+                <section className="space-y-2">
+                <p className="px-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Dashboard</p>
+                <SettingRow icon={<Zap className="h-4 w-4 text-emerald-500" />} label="Automatic market refresh" description="Refresh live quotes every 30 seconds" enabled={autoRefresh} onToggle={onToggleAutoRefresh} />
+                <SettingRow icon={<Layout className="h-4 w-4 text-sky-500" />} label="Compact dashboard" description="Use tighter spacing for more information" enabled={compactMode} onToggle={onToggleCompactMode} />
+                <SettingRow icon={<Activity className="h-4 w-4 text-amber-500" />} label="Reduced motion" description="Minimize animated transitions and scrolling" enabled={reducedMotion} onToggle={onToggleReducedMotion} />
+                </section>
+                <section className="space-y-2">
+                <p className="px-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Alerts</p>
+                <ComingSoonRow icon={<Bell className="h-4 w-4 text-violet-500" />} label="Notifications" description="Get alerts for market and fund movements" />
+                <ComingSoonRow icon={<Bell className="h-4 w-4 text-rose-500" />} label="Price alerts" description="Set custom alerts for your watchlist" />
+                </section>
+                <section className="space-y-2">
+                <p className="px-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Appearance</p>
+                <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 p-3">
+                  <div><p className="text-xs font-semibold">Theme</p><p className="text-[10px] text-muted-foreground">Current theme: {theme}</p></div>
+                  <button type="button" onClick={onToggleTheme} className="rounded-lg bg-background px-3 py-1.5 text-[10px] font-semibold capitalize shadow-sm">{theme === 'dark' ? 'Switch to light' : 'Switch to dark'}</button>
+                </div>
+                </section>
+              </div>
+              <div className="relative z-10 border-t border-white/30 px-5 py-3 text-center text-[10px] text-muted-foreground dark:border-white/10">
+                NiftyPulse · Personal dashboard
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
     </header>
+  );
+}
+
+function SettingRow({
+  icon,
+  label,
+  description,
+  enabled,
+  onToggle,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  enabled: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button type="button" onClick={onToggle} className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-muted/30 p-3 text-left transition hover:border-emerald-500/30">
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-background">{icon}</span>
+      <span className="min-w-0 flex-1"><span className="block text-xs font-semibold">{label}</span><span className="block text-[10px] text-muted-foreground">{description}</span></span>
+      <span className={`relative h-5 w-9 rounded-full transition ${enabled ? 'bg-emerald-500' : 'bg-muted-foreground/30'}`}><span className={`absolute top-1 h-3 w-3 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-5' : 'translate-x-1'}`} /></span>
+    </button>
+  );
+}
+
+function ComingSoonRow({
+  icon,
+  label,
+  description,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 opacity-80">
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-background">{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-semibold">{label}</span>
+        <span className="block text-[10px] text-muted-foreground">{description}</span>
+      </span>
+      <Badge variant="outline" className="shrink-0 text-[9px]">Coming soon</Badge>
+    </div>
   );
 }

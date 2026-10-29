@@ -115,6 +115,15 @@ body {
       background-color 0.45s ease,
       color 0.35s ease;
   }
+
+  .reduce-motion *,
+  .reduce-motion *::before,
+  .reduce-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @layer components {
@@ -183,6 +192,64 @@ body {
       0 12px 32px hsl(0 0% 0% / 0.25);
   }
 
+  .liquid-glass-drawer {
+    background:
+      linear-gradient(145deg, hsl(var(--surface) / 0.78), hsl(var(--surface) / 0.52)),
+      radial-gradient(120% 80% at 0% 0%, hsl(160 84% 45% / 0.16), transparent 58%),
+      radial-gradient(100% 70% at 100% 100%, hsl(199 89% 55% / 0.14), transparent 58%);
+    border-left: 1px solid hsl(0 0% 100% / 0.42);
+    box-shadow:
+      -24px 0 70px hsl(222 35% 12% / 0.16),
+      inset 1px 0 0 hsl(0 0% 100% / 0.28),
+      inset 0 1px 0 hsl(0 0% 100% / 0.2);
+    backdrop-filter: blur(34px) saturate(155%);
+    -webkit-backdrop-filter: blur(34px) saturate(155%);
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    isolation: isolate;
+  }
+
+  .dark .liquid-glass-drawer {
+    background:
+      linear-gradient(145deg, hsl(222 40% 10% / 0.72), hsl(222 40% 7% / 0.58)),
+      radial-gradient(120% 80% at 0% 0%, hsl(160 84% 45% / 0.12), transparent 58%),
+      radial-gradient(100% 70% at 100% 100%, hsl(199 89% 55% / 0.1), transparent 58%);
+    border-left-color: hsl(0 0% 100% / 0.14);
+    box-shadow:
+      -24px 0 70px hsl(0 0% 0% / 0.38),
+      inset 1px 0 0 hsl(0 0% 100% / 0.1),
+      inset 0 1px 0 hsl(0 0% 100% / 0.06);
+  }
+
+  .liquid-glass-orb {
+    position: absolute;
+    pointer-events: none;
+    border-radius: 9999px;
+    filter: blur(42px);
+    opacity: 0.34;
+    animation: liquid-orb-drift 18s ease-in-out infinite;
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  .liquid-glass-orb-one {
+    width: 15rem;
+    height: 15rem;
+    top: -5rem;
+    right: -5rem;
+    background: hsl(160 84% 45% / 0.28);
+  }
+
+  .liquid-glass-orb-two {
+    width: 13rem;
+    height: 13rem;
+    bottom: 8rem;
+    left: -7rem;
+    background: hsl(199 89% 55% / 0.2);
+    animation-delay: -6s;
+  }
+
   .bull-text {
     color: hsl(var(--bull));
   }
@@ -222,12 +289,23 @@ body {
       0% 0%,
       0% 40%;
   }
+
   50% {
     background-position:
       0% 0%,
       0% 0%,
       0% 0%,
       100% 60%;
+  }
+}
+
+@keyframes liquid-orb-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(18px, 24px, 0) scale(1.08);
   }
 }
 

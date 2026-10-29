@@ -12,13 +12,12 @@ import { Watchlist, type WatchlistItem } from '@/components/Watchlist';
 import { SearchModal } from '@/components/SearchModal';
 import { DashboardPlaceholder } from '@/components/DashboardPlaceholder';
 import { MarketNewsPanel } from '@/components/MarketNewsPanel';
-import { TradeIdeas, type TradeIdea } from '@/components/TradeIdeas';
+import { TRADE_IDEAS, FundPinnedRail, TradeIdeas, type TradeIdea } from '@/components/TradeIdeas';
 import { FundDetails } from '@/components/FundDetails';
 import { useTheme } from '@/hooks/useTheme';
 import { useMarketData, useFormatPrice } from '@/hooks/useMarketData';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import type { IndexData } from '@/lib/types';
-import { RefreshCw } from 'lucide-react';
 
 const DEFAULT_PINS: string[] = ['NIFTY 50', 'NIFTY BANK'];
 const DEFAULT_WATCHLIST: WatchlistItem[] = [
@@ -61,8 +60,15 @@ function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFund, setSelectedFund] = useState<TradeIdea | null>(null);
+  const [fundPins, setFundPins] = useLocalStorage<number[]>('niftypulse-fund-pins', []);
+  const [compactMode, setCompactMode] = useLocalStorage('niftypulse-compact-mode', false);
+  const [reducedMotion, setReducedMotion] = useLocalStorage('niftypulse-reduced-motion', false);
   const chartSectionRef = useRef<HTMLDivElement>(null);
   const watchlistSectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('reduce-motion', reducedMotion);
+  }, [reducedMotion]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -189,62 +195,26 @@ function App() {
           theme={theme}
           onToggleTheme={toggleTheme}
           onOpenSearch={() => setSearchOpen(true)}
-          onOpenFunds={() => {
-            setSelectedFund(null);
-            window.requestAnimationFrame(() =>
-              document.getElementById('your-funds')?.scrollIntoView({ behavior: 'smooth' })
-            );
-          }}
+          fundPins={fundPins}
+          autoRefresh={autoRefresh}
+          onToggleAutoRefresh={() => setAutoRefresh((enabled) => !enabled)}
+          compactMode={compactMode}
+          onToggleCompactMode={() => setCompactMode((enabled) => !enabled)}
+          reducedMotion={reducedMotion}
+          onToggleReducedMotion={() => setReducedMotion((enabled) => !enabled)}
         />
         <TickerTape indices={indices} lastTick={lastTick} />
+        <FundPinnedRail
+          pinnedCodes={fundPins}
+          onSelectFund={setSelectedFund}
+          onTogglePin={(code) =>
+            setFundPins((current) =>
+              current.includes(code) ? current.filter((item) => item !== code) : [...current, code]
+            )
+          }
+        />
 
-        <main className="mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/50 bg-white/50 px-4 py-2 text-xs text-muted-foreground shadow-sm backdrop-blur-md dark:bg-muted/40">
-            <span>
-              {loading
-                ? 'Syncing live market data…'
-                : error
-                  ? error
-                  : source === 'live'
-                    ? 'Live quotes · Yahoo Finance (NSE / BSE)'
-                    : 'Live market data unavailable'}
-            </span>
-            <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-              {updatedLabel && <span className="hidden sm:inline">Updated {updatedLabel}</span>}
-              <button
-                type="button"
-                role="switch"
-                aria-checked={autoRefresh}
-                aria-label="Automatic quote refresh every 30 seconds"
-                onClick={() => setAutoRefresh((enabled) => !enabled)}
-                className="inline-flex items-center gap-2 rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 font-semibold text-foreground transition hover:bg-muted/70"
-              >
-                <span className="text-[11px]">Auto · 30s</span>
-                <span
-                  aria-hidden="true"
-                  className={`relative h-4 w-7 rounded-full transition-colors ${
-                    autoRefresh ? 'bg-emerald-500' : 'bg-muted-foreground/40'
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-transform ${
-                      autoRefresh ? 'translate-x-3.5' : 'translate-x-0.5'
-                    }`}
-                  />
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={refresh}
-                aria-label="Refresh market data now"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-foreground/10 px-2.5 py-1.5 font-semibold text-foreground transition hover:bg-foreground/15"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Refresh</span>
-              </button>
-            </div>
-          </div>
-
+        <main className={`mx-auto max-w-[1600px] px-4 md:px-6 ${compactMode ? 'py-4' : 'py-6 md:py-8'}`}>
           {indices.length === 0 ? (
             <DashboardPlaceholder
               loading={loading}
@@ -315,7 +285,13 @@ function App() {
           </div>
 
           <div id="your-funds" className="mt-6 scroll-mt-24">
-            <TradeIdeas onSelectFund={setSelectedFund} />
+            <TradeIdeas onSelectFund={setSelectedFund} pinnedCodes={fundPins} onTogglePin={(code) =>
+              setFundPins((current) =>
+                current.includes(code)
+                  ? current.filter((item) => item !== code)
+                  : [...current, code]
+              )
+            } />
           </div>
 
           <div className="mt-6">
@@ -364,6 +340,8 @@ function App() {
         stocks={stocks}
         onSelectIndex={handleSelectIndex}
         onSelectStock={handleSelectStock}
+        funds={TRADE_IDEAS}
+        onSelectFund={setSelectedFund}
       />
     </div>
   );

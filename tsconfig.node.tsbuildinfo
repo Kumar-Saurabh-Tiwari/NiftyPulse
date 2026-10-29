@@ -1,1 +1,1 @@
-{"root":["./vite.config.ts","./api/news.ts","./api/yahoo.ts","./server/news.ts"],"version":"5.6.3"}
+{"root":["./vite.config.ts","./api/mf.ts","./api/news.ts","./api/yahoo.ts","./server/mutualfund.ts","./server/news.ts"],"version":"5.6.3"}
